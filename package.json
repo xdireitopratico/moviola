@@ -1,0 +1,13 @@
+{
+  "name": "moviola",
+  "private": true,
+  "version": "0.1.0-beta.001",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3"
+  }
+}

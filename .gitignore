@@ -1,0 +1,14 @@
+node_modules/
+dist/
+out/
+release/
+.env
+.env.*
+sessions/
+*.mp4
+*.mov
+*.webm
+*.wav
+*.mp3
+.DS_Store
+Thumbs.db
