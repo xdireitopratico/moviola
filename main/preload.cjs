@@ -12,5 +12,8 @@ import_electron.contextBridge.exposeInMainWorld("moviola", {
   },
   create(launch) {
     return import_electron.ipcRenderer.invoke("moviola:create", launch);
+  },
+  setNarration(id, sceneId, narration) {
+    return import_electron.ipcRenderer.invoke("moviola:narration", id, sceneId, narration);
   }
 });

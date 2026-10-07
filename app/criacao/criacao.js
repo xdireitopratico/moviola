@@ -11,7 +11,7 @@
       const status = scene.status;
       const title = scene.title || `Cena ${n}`;
       const narration = scene.narration || "—";
-      return `<article class="frame" data-status="${status}">
+      return `<article class="frame" data-status="${status}" data-id="${scene.id || ""}">
         <div class="frame-top">
           <span class="frame-num">:: CENA ${n}</span>
           <span class="frame-status">${status}</span>
@@ -23,8 +23,32 @@
         </div>
       </article>`;
     }).join("");
+    const box = document.getElementById("narrationBox");
+    window.moviolaActiveScene = () => frames[0] && frames[0].id ? frames[0].id : "";
+    if (box) box.value = frames[0] && frames[0].narration ? frames[0].narration : "";
+    board.querySelectorAll(".frame").forEach((frame) => {
+      frame.addEventListener("click", () => {
+        const id = frame.getAttribute("data-id") || "";
+        window.moviolaActiveScene = () => id;
+        const scene = frames.find((item) => item.id === id);
+        if (box) box.value = scene && scene.narration ? scene.narration : "";
+      });
+    });
   }
   const sessionId = new URLSearchParams(location.search).get("session");
+
+  let narrationTail = Promise.resolve();
+  const narrationBox = document.getElementById("narrationBox");
+  if (narrationBox) {
+    narrationBox.addEventListener("input", () => {
+      const sceneId = window.moviolaActiveScene ? window.moviolaActiveScene() : "";
+      if (!sessionId || !sceneId || !window.moviola) return;
+      narrationTail = window.moviola.setNarration(sessionId, sceneId, narrationBox.value);
+      const line = document.querySelector(`.frame[data-id="${sceneId}"] .frame-nar`);
+      if (line) line.textContent = narrationBox.value || "—";
+    });
+  }
+  window.moviolaNarration = () => narrationTail;
   window.moviolaRoom = (async () => {
     const slot = document.getElementById("lastEvent");
     if (!sessionId || !window.moviola) return { title: "", event: slot ? slot.textContent : "" };

@@ -33,6 +33,11 @@ function createSession(launch, now = new Date().toISOString()) {
     lastEvent: null
   };
 }
+function writeSceneText(scene, narration) {
+  if (scene.status === "travada")
+    return { ok: false, scene };
+  return { ok: true, scene: { ...scene, narration } };
+}
 
 // shared/store.ts
 function fileOf(root, id) {
@@ -65,6 +70,17 @@ function withLaunch(session, launch, now) {
     launch,
     projectName: theme || session.projectName,
     updatedAt: now
+  };
+}
+function setNarration(session, sceneId, narration, now) {
+  return {
+    ...session,
+    updatedAt: now,
+    scenes: session.scenes.map((scene) => {
+      if (scene.id !== sceneId)
+        return scene;
+      return writeSceneText(scene, narration).scene;
+    })
   };
 }
 
@@ -115,6 +131,12 @@ function registerSessionIpc() {
     const opened = openSession(launch, new Date().toISOString());
     await saveSession(root, opened.session);
     return opened.session;
+  });
+  ipcMain.handle("moviola:narration", async (_event, id, sceneId, narration) => {
+    const current = await readSession(root, id);
+    const next = setNarration(current, sceneId, narration, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
   });
 }
 app.whenReady().then(async () => {
@@ -173,6 +195,17 @@ app.whenReady().then(async () => {
     console.log(`TITLE ${title}`);
     console.log(`FILE ${saved.projectName}`);
     const ok = url2.includes("criacao/index.html") && url2.includes(id) && title === "Viagem de barco" && saved.projectName === "Viagem de barco" && saved.status === "briefing";
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (check === "033") {
+    const opened = openSession({ theme: "Narração", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" }, "2026-10-06T00:00:00.000Z");
+    await saveSession(sessionsRoot(), opened.session);
+    await win.loadFile(join2(here, "..", "app", "criacao", "index.html"), { query: { session: opened.session.id } });
+    const wrote = await win.webContents.executeJavaScript("(async()=>{await window.moviolaRoom;const box=document.getElementById('narrationBox');box.value='texto novo da cena';box.dispatchEvent(new Event('input',{bubbles:true}));await window.moviolaNarration();return box.value;})()");
+    const saved = await readSession(sessionsRoot(), opened.session.id);
+    console.log(`NARRATION ${saved.scenes[0]?.narration}`);
+    const ok = wrote === "texto novo da cena" && saved.scenes[0]?.narration === "texto novo da cena";
     app.exit(ok ? 0 : 1);
     return;
   }
