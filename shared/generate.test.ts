@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createSession, type Scene } from "./contract.ts";
-import { requestClip, runQueue } from "./generate.ts";
+import { requestClip, runQueue, storeClip } from "./generate.ts";
 
 test("038 sem url a cena fica falhou com motivo", async () => {
   const session = createSession(
@@ -38,4 +41,33 @@ test("039 a fila trata uma cena por vez e ela entra gerando", async () => {
   expect(seen).toEqual(["gerando", "gerando"]);
   expect(done.map((scene) => scene.id)).toEqual([first.id, "cena-2"]);
   expect(done.every((scene) => scene.status === "falhou")).toBe(true);
+});
+
+test("040 o arquivo chega ao disco antes do status pronta", async () => {
+  const session = createSession(
+    { theme: "Arquivo", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" },
+    "2026-10-06T00:00:00.000Z",
+  );
+  const scene = session.scenes[0];
+  if (!scene) throw new Error("sessão sem cena");
+  const dir = await mkdtemp(join(tmpdir(), "moviola-clip-"));
+  const dest = join(dir, "cena.mp4");
+  const order: string[] = [];
+  try {
+    const stored = await storeClip(scene, new Uint8Array([1, 2, 3]), dest, async (path, bytes) => {
+      order.push("write");
+      const { writeFile } = await import("node:fs/promises");
+      await writeFile(path, bytes);
+      order.push("written");
+    });
+    order.push(stored.status);
+    expect(order).toEqual(["write", "written", "pronta"]);
+    expect(stored.filePath).toBe(dest);
+    expect(Array.from(await readFile(dest))).toEqual([1, 2, 3]);
+    await expect(storeClip(scene, new Uint8Array([4]), dest, async () => {
+      throw new Error("disco");
+    })).rejects.toThrow("disco");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

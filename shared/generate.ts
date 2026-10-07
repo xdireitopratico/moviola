@@ -1,4 +1,7 @@
+import { writeFile } from "node:fs/promises";
 import type { Scene } from "./contract.ts";
+
+type WriteClip = (path: string, bytes: Uint8Array) => Promise<void>;
 
 export async function requestClip(scene: Scene, url: string | null, fetchImpl: typeof fetch = fetch): Promise<Scene> {
   if (!url) {
@@ -23,4 +26,14 @@ export async function runQueue(scenes: Scene[], step: (scene: Scene) => Promise<
     done.push(finished);
   }
   return done;
+}
+
+export async function storeClip(
+  scene: Scene,
+  bytes: Uint8Array,
+  destPath: string,
+  write: WriteClip = writeFile,
+): Promise<Scene> {
+  await write(destPath, bytes);
+  return { ...scene, status: "pronta", filePath: destPath, reason: null };
 }
