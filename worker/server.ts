@@ -1,7 +1,15 @@
 import { createServer, type IncomingMessage, type Server } from "node:http";
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { buildPostProdRequest, type Session } from "../shared/contract.ts";
+import { concatClips } from "./concat.ts";
 
-export async function decide(method: string, path: string, raw: string): Promise<{ status: number; body: Record<string, unknown> }> {
+export async function decide(
+  method: string,
+  path: string,
+  raw: string,
+): Promise<{ status: number; body: Record<string, unknown>; clips?: string[] }> {
   if (method !== "POST" || path !== "/api/v1/post-production") {
     return { status: 404, body: { error: "não encontrado" } };
   }
@@ -21,7 +29,14 @@ export async function decide(method: string, path: string, raw: string): Promise
       body: { ok: false, sceneId: built.sceneId, sceneIndex: built.sceneIndex, reason: built.reason },
     };
   }
-  return { status: 202, body: { accepted: true } };
+  return { status: 200, body: { accepted: true }, clips: built.request.clips };
+}
+
+export async function renderClips(clips: string[]): Promise<Buffer> {
+  const dir = await mkdtemp(join(tmpdir(), "moviola-out-"));
+  const dest = join(dir, "out.mp4");
+  await concatClips(clips, dest);
+  return readFile(dest);
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -37,6 +52,12 @@ export function startPostProd(port: number, hostname = "127.0.0.1"): Promise<Ser
   const server = createServer((req, res) => {
     void readBody(req).then(async (raw) => {
       const result = await decide(req.method ?? "GET", new URL(req.url ?? "/", "http://127.0.0.1").pathname, raw);
+      if (result.clips) {
+        const mp4 = await renderClips(result.clips);
+        res.writeHead(200, { "content-type": "video/mp4", "content-length": String(mp4.length) });
+        res.end(mp4);
+        return;
+      }
       res.writeHead(result.status, { "content-type": "application/json; charset=utf-8" });
       res.end(JSON.stringify(result.body));
     });

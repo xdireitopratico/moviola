@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createSession, type Scene, type Session } from "../shared/contract.ts";
+import { colorClip } from "./concat.ts";
 import { decide, startPostProd } from "./server.ts";
 
 const launch = {
@@ -61,4 +65,40 @@ test("043 o worker recusa cena incompleta e clipe sem arquivo", async () => {
   expect(missing.status).toBe(409);
   expect(missing.body).toEqual({ ok: false, sceneId: "b", sceneIndex: 1, reason: "sem_arquivo" });
   expect(missing.body).not.toHaveProperty("request");
+});
+
+test("044 o worker concatena dois clipes de cor e devolve um mp4", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "moviola-color-"));
+  const red = join(dir, "red.mp4");
+  const blue = join(dir, "blue.mp4");
+  const server = await startPostProd(0);
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("porta");
+  try {
+    await colorClip(red, "red");
+    await colorClip(blue, "blue");
+    const session = sessionWith([
+      scene({ id: "a", index: 0, status: "pronta", filePath: red }),
+      scene({ id: "b", index: 1, status: "pronta", filePath: blue }),
+    ]);
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/v1/post-production`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ session, callback: "https://app.local/callback" }),
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("video/mp4");
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    expect(bytes.byteLength).toBeGreaterThan(100);
+    const out = join(dir, "out.mp4");
+    await writeFile(out, bytes);
+    const probe = Bun.spawn(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", out], {
+      stdout: "pipe",
+    });
+    const duration = Number(await new Response(probe.stdout).text());
+    expect(duration).toBeGreaterThan(1.5);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+    await rm(dir, { recursive: true, force: true });
+  }
 });
