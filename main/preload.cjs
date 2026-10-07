@@ -21,5 +21,8 @@ import_electron.contextBridge.exposeInMainWorld("moviola", {
   },
   regenerate(id, sceneId) {
     return import_electron.ipcRenderer.invoke("moviola:regenerate", id, sceneId);
+  },
+  gate(id) {
+    return import_electron.ipcRenderer.invoke("moviola:gate", id);
   }
 });

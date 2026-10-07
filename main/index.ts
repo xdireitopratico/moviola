@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain } from "electron";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Launch } from "../shared/contract.ts";
+import { buildPostProdRequest, type Launch } from "../shared/contract.ts";
 import { launchFrom, writeLaunch } from "../shared/launch.ts";
 import { openSession, regenerateScene } from "../shared/operations.ts";
 import { listSessions, readSession, reorderScenes, saveSession, setNarration } from "../shared/store.ts";
@@ -30,6 +30,10 @@ function registerSessionIpc(): void {
     const next = setNarration(current, sceneId, narration, new Date().toISOString());
     await saveSession(root, next);
     return next;
+  });
+  ipcMain.handle("moviola:gate", async (_event, id: string) => {
+    const session = await readSession(root, id);
+    return buildPostProdRequest(session, "app://callback");
   });
   ipcMain.handle("moviola:regenerate", async (_event, id: string, sceneId: string) => {
     const current = await readSession(root, id);
@@ -110,6 +114,22 @@ app.whenReady().then(async () => {
     console.log(`TITLE ${title}`);
     console.log(`FILE ${saved.projectName}`);
     const ok = url.includes("criacao/index.html") && url.includes(id) && title === "Viagem de barco" && saved.projectName === "Viagem de barco" && saved.status === "briefing";
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (check === "037") {
+    const opened = openSession(
+      { theme: "Portão", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" },
+      "2026-10-06T00:00:00.000Z",
+    );
+    const scene = opened.session.scenes[0];
+    if (!scene) throw new Error("sessão sem cena");
+    opened.session.scenes = [{ ...scene, title: "Abertura" }];
+    await saveSession(sessionsRoot(), opened.session);
+    await win.loadFile(join(here, "..", "app", "criacao", "index.html"), { query: { session: opened.session.id } });
+    const held = await win.webContents.executeJavaScript("(async()=>{await window.moviolaRoom;const button=document.getElementById('openEditor');button.click();return {disabled:button.getAttribute('aria-disabled'),text:document.getElementById('editorHold').textContent,url:location.pathname};})()") as { disabled: string; text: string; url: string };
+    console.log(`HELD ${JSON.stringify(held)}`);
+    const ok = held.disabled === "true" && held.text.includes("Abertura") && held.url.includes("criacao");
     app.exit(ok ? 0 : 1);
     return;
   }

@@ -102,6 +102,15 @@
     if (proj) proj.textContent = session.projectName;
     if (sheet) sheet.textContent = session.projectName;
     paintSheet(session.scenes);
+    const gate = await window.moviola.gate(sessionId);
+    const openEditor = document.getElementById("openEditor");
+    const editorHold = document.getElementById("editorHold");
+    if (openEditor && editorHold && gate && gate.ok === false) {
+      openEditor.setAttribute("aria-disabled", "true");
+      const held = session.scenes.find((scene) => scene.id === gate.sceneId);
+      const name = held && held.title ? held.title : gate.sceneId;
+      editorHold.textContent = `Cena ${gate.sceneIndex + 1} segurou: ${name}`;
+    }
     const event = session.lastEvent;
     if (slot) slot.textContent = event ? `${event.operation} · ${event.detail}` : "sem evento";
     return { title: session.projectName, event: slot ? slot.textContent : "" };
@@ -182,3 +191,10 @@
   const grain = $('.grain');
   if (grain) grain.style.backgroundImage = `url(${g.toDataURL('image/png')})`;
 })();
+
+  const openEditor = document.getElementById("openEditor");
+  if (openEditor) {
+    openEditor.addEventListener("click", (event) => {
+      if (openEditor.getAttribute("aria-disabled") === "true") event.preventDefault();
+    });
+  }

@@ -3,10 +3,6 @@ import { app, BrowserWindow, ipcMain } from "electron";
 import { join as join2 } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// shared/store.ts
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-
 // shared/contract.ts
 var sceneStatuses = ["vazia", "gerando", "pronta", "falhou", "travada"];
 var knownStatuses = new Set(sceneStatuses);
@@ -38,8 +34,42 @@ function writeSceneText(scene, narration) {
     return { ok: false, scene };
   return { ok: true, scene: { ...scene, narration } };
 }
+function buildPostProdRequest(session, callback) {
+  const ordered = [...session.scenes].sort((a, b) => a.index - b.index);
+  const incomplete = ordered.find((scene) => scene.status !== "pronta");
+  if (incomplete) {
+    return {
+      ok: false,
+      sceneId: incomplete.id,
+      sceneIndex: incomplete.index,
+      reason: "incompleta"
+    };
+  }
+  const missingFile = ordered.find((scene) => !scene.filePath);
+  if (missingFile) {
+    return {
+      ok: false,
+      sceneId: missingFile.id,
+      sceneIndex: missingFile.index,
+      reason: "sem_arquivo"
+    };
+  }
+  return {
+    ok: true,
+    request: {
+      sessionId: session.id,
+      projectName: session.projectName,
+      clips: ordered.map((scene) => scene.filePath),
+      narrationUrl: null,
+      outputFormat: "mp4",
+      callback
+    }
+  };
+}
 
 // shared/store.ts
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 function fileOf(root, id) {
   return join(root, `${id}.json`);
 }
@@ -153,6 +183,10 @@ function registerSessionIpc() {
     await saveSession(root, next);
     return next;
   });
+  ipcMain.handle("moviola:gate", async (_event, id) => {
+    const session = await readSession(root, id);
+    return buildPostProdRequest(session, "app://callback");
+  });
   ipcMain.handle("moviola:regenerate", async (_event, id, sceneId) => {
     const current = await readSession(root, id);
     const next = regenerateScene(current, sceneId, new Date().toISOString());
@@ -222,6 +256,20 @@ app.whenReady().then(async () => {
     console.log(`TITLE ${title}`);
     console.log(`FILE ${saved.projectName}`);
     const ok = url2.includes("criacao/index.html") && url2.includes(id) && title === "Viagem de barco" && saved.projectName === "Viagem de barco" && saved.status === "briefing";
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (check === "037") {
+    const opened = openSession({ theme: "Portão", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" }, "2026-10-06T00:00:00.000Z");
+    const scene = opened.session.scenes[0];
+    if (!scene)
+      throw new Error("sessão sem cena");
+    opened.session.scenes = [{ ...scene, title: "Abertura" }];
+    await saveSession(sessionsRoot(), opened.session);
+    await win.loadFile(join2(here, "..", "app", "criacao", "index.html"), { query: { session: opened.session.id } });
+    const held = await win.webContents.executeJavaScript("(async()=>{await window.moviolaRoom;const button=document.getElementById('openEditor');button.click();return {disabled:button.getAttribute('aria-disabled'),text:document.getElementById('editorHold').textContent,url:location.pathname};})()");
+    console.log(`HELD ${JSON.stringify(held)}`);
+    const ok = held.disabled === "true" && held.text.includes("Abertura") && held.url.includes("criacao");
     app.exit(ok ? 0 : 1);
     return;
   }
