@@ -1,4 +1,29 @@
 (() => {
+
+  function paintSheet(scenes) {
+    const board = document.getElementById("sheet");
+    if (!board) return;
+    const frames = scenes.length ? scenes : [{ index: 0, title: "", status: "vazia", narration: "" }];
+    const meta = document.getElementById("metaScenes");
+    if (meta) meta.textContent = String(frames.length);
+    board.innerHTML = frames.map((scene) => {
+      const n = String(scene.index + 1).padStart(2, "0");
+      const status = scene.status;
+      const title = scene.title || `Cena ${n}`;
+      const narration = scene.narration || "—";
+      return `<article class="frame" data-status="${status}">
+        <div class="frame-top">
+          <span class="frame-num">:: CENA ${n}</span>
+          <span class="frame-status">${status}</span>
+        </div>
+        <div class="frame-canvas"><span class="frame-ph">${status}</span></div>
+        <div class="frame-foot">
+          <div class="frame-title">${title}</div>
+          <div class="frame-nar">${narration}</div>
+        </div>
+      </article>`;
+    }).join("");
+  }
   const sessionId = new URLSearchParams(location.search).get("session");
   window.moviolaRoom = (async () => {
     const slot = document.getElementById("lastEvent");
@@ -8,6 +33,7 @@
     const sheet = document.getElementById("sheetTitle");
     if (proj) proj.textContent = session.projectName;
     if (sheet) sheet.textContent = session.projectName;
+    paintSheet(session.scenes);
     const event = session.lastEvent;
     if (slot) slot.textContent = event ? `${event.operation} · ${event.detail}` : "sem evento";
     return { title: session.projectName, event: slot ? slot.textContent : "" };
@@ -15,26 +41,7 @@
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
-  const frames = Array.from({ length: 8 }, (_, i) => ({
-    n: String(i + 1).padStart(2, '0'),
-    title: `Cena ${String(i + 1).padStart(2, '0')}`,
-    status: 'vazia',
-    nar: '—'
-  }));
-
-  const sheet = $('#sheet');
-  sheet.innerHTML = frames.map((f) => `
-    <article class="frame" data-n="${f.n}">
-      <div class="frame-top">
-        <span class="frame-num">:: CENA ${f.n}</span>
-        <span class="frame-status">${f.status}</span>
-      </div>
-      <div class="frame-canvas"><span class="frame-ph">Negativo</span></div>
-      <div class="frame-foot">
-        <div class="frame-title">${f.title}</div>
-        <div class="frame-nar">${f.nar}</div>
-      </div>
-    </article>`).join('');
+  paintSheet([]);
 
   // Tabs — visual only
   const panels = {

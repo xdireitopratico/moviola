@@ -140,3 +140,13 @@ a{color:inherit;text-decoration:none}
   :root{--side:300px}
 }
 a.step{color:inherit}
+
+.frame[data-status="vazia"] .frame-status{color:var(--fg-3)}
+.frame[data-status="gerando"] .frame-status{color:#e6c36a}
+.frame[data-status="pronta"] .frame-status{color:#b7d3b0}
+.frame[data-status="falhou"] .frame-status{color:#e0a090}
+.frame[data-status="travada"] .frame-status{color:#9bb0c9}
+.frame[data-status="gerando"] .frame-ph{color:#e6c36a}
+.frame[data-status="pronta"] .frame-ph{color:#b7d3b0}
+.frame[data-status="falhou"] .frame-ph{color:#e0a090}
+.frame[data-status="travada"] .frame-ph{color:#9bb0c9}

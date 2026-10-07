@@ -176,6 +176,26 @@ app.whenReady().then(async () => {
     app.exit(ok ? 0 : 1);
     return;
   }
+  if (check === "032") {
+    const opened = openSession({ theme: "Estados", durationSeconds: 60, aspectRatio: "16:9", style: "Documental" }, "2026-10-06T00:00:00.000Z");
+    const statuses = ["vazia", "gerando", "pronta", "falhou", "travada"];
+    opened.session.scenes = statuses.map((status, index) => ({
+      id: `cena-${status}`,
+      index,
+      title: status,
+      narration: "",
+      prompt: "",
+      durationSeconds: 4,
+      status,
+      filePath: null
+    }));
+    await saveSession(sessionsRoot(), opened.session);
+    await win.loadFile(join2(here, "..", "app", "criacao", "index.html"), { query: { session: opened.session.id } });
+    const labels = await win.webContents.executeJavaScript("window.moviolaRoom.then(() => [...document.querySelectorAll('.frame')].map((node) => node.getAttribute('data-status')).join(','))");
+    console.log(`STATES ${labels}`);
+    app.exit(labels === "vazia,gerando,pronta,falhou,travada" ? 0 : 1);
+    return;
+  }
   if (check === "031") {
     const navigated = new Promise((resolve) => {
       win.webContents.once("did-finish-load", () => resolve());
