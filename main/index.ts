@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { exportOutput, mediaUrl } from "../shared/media.ts";
 import { buildPostProdRequest, type Launch } from "../shared/contract.ts";
 import { callWorker } from "../shared/postprod.ts";
 import { launchFrom, writeLaunch } from "../shared/launch.ts";
@@ -55,6 +56,18 @@ function registerSessionIpc(): void {
     const next = reorderScenes(current, orderedIds, new Date().toISOString());
     await saveSession(root, next);
     return next;
+  });
+  ipcMain.handle("moviola:mediaUrl", (_event, absolutePath: string) => mediaUrl(absolutePath));
+  ipcMain.handle("moviola:export", async (_event, id: string) => {
+    const session = await readSession(root, id);
+    return exportOutput(session, async () => {
+      const result = await dialog.showSaveDialog({
+        defaultPath: `${session.projectName || "moviola"}.mp4`,
+        filters: [{ name: "MP4", extensions: ["mp4"] }],
+      });
+      if (result.canceled || !result.filePath) return null;
+      return result.filePath;
+    });
   });
 }
 

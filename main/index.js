@@ -1,7 +1,32 @@
 // main/index.ts
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import { join as join2 } from "node:path";
 import { fileURLToPath } from "node:url";
+
+// shared/media.ts
+import { access, copyFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
+function mediaUrl(absolutePath) {
+  return pathToFileURL(absolutePath).href;
+}
+async function exportOutput(session, choosePath, copy = copyFile, probe = (path) => access(path).then(() => {
+  return;
+})) {
+  if (!session.outputPath) {
+    return { ok: false, reason: "sem_saida" };
+  }
+  try {
+    await probe(session.outputPath);
+  } catch {
+    return { ok: false, reason: "arquivo_ausente" };
+  }
+  const dest = await choosePath();
+  if (!dest) {
+    return { ok: false, reason: "cancelado" };
+  }
+  await copy(session.outputPath, dest);
+  return { ok: true, path: dest };
+}
 
 // shared/contract.ts
 var sceneStatuses = ["vazia", "gerando", "pronta", "falhou", "travada"];
@@ -261,6 +286,19 @@ function registerSessionIpc() {
     const next = reorderScenes(current, orderedIds, new Date().toISOString());
     await saveSession(root, next);
     return next;
+  });
+  ipcMain.handle("moviola:mediaUrl", (_event, absolutePath) => mediaUrl(absolutePath));
+  ipcMain.handle("moviola:export", async (_event, id) => {
+    const session = await readSession(root, id);
+    return exportOutput(session, async () => {
+      const result = await dialog.showSaveDialog({
+        defaultPath: `${session.projectName || "moviola"}.mp4`,
+        filters: [{ name: "MP4", extensions: ["mp4"] }]
+      });
+      if (result.canceled || !result.filePath)
+        return null;
+      return result.filePath;
+    });
   });
 }
 app.whenReady().then(async () => {

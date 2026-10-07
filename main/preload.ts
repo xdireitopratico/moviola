@@ -29,4 +29,12 @@ contextBridge.exposeInMainWorld("moviola", {
   render(id: string): Promise<Session> {
     return ipcRenderer.invoke("moviola:render", id);
   },
+  mediaUrl(absolutePath: string): Promise<string> {
+    return ipcRenderer.invoke("moviola:mediaUrl", absolutePath);
+  },
+  export(id: string): Promise<
+    { ok: true; path: string } | { ok: false; reason: "cancelado" | "sem_saida" | "arquivo_ausente" }
+  > {
+    return ipcRenderer.invoke("moviola:export", id);
+  },
 });
