@@ -97,8 +97,22 @@
     void persistForm();
   });
 
-  $("#createBtn").addEventListener("click", (e) => {
-    e.preventDefault();
+  async function createVideo() {
+    if (!window.moviola) return "";
+    const session = await window.moviola.create(readLaunch());
+    location.href = `../criacao/index.html?session=${encodeURIComponent(session.id)}`;
+    return session.id;
+  }
+
+  $("#createBtn").addEventListener("click", (event) => {
+    event.preventDefault();
+    void createVideo();
+  });
+  document.addEventListener("keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      void createVideo();
+    }
   });
 
   const ready = sessionId && window.moviola
@@ -127,7 +141,7 @@
   }
 
   const recents = window.moviola ? renderRecents() : Promise.resolve();
-  window.moviolaForm = { readLaunch, writeForm, ready, recents, saved: () => saveTail };
+  window.moviolaForm = { readLaunch, writeForm, ready, recents, createVideo, saved: () => saveTail };
 
   const g = document.createElement("canvas");
   g.width = 220; g.height = 220;

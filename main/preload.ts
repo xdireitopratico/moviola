@@ -11,4 +11,7 @@ contextBridge.exposeInMainWorld("moviola", {
   writeLaunch(id: string, launch: Launch): Promise<Session> {
     return ipcRenderer.invoke("moviola:writeLaunch", id, launch);
   },
+  create(launch: Launch): Promise<Session> {
+    return ipcRenderer.invoke("moviola:create", launch);
+  },
 });

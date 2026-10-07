@@ -3,15 +3,35 @@ import { app, BrowserWindow, ipcMain } from "electron";
 import { join as join2 } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// shared/store.ts
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-
 // shared/contract.ts
 var sceneStatuses = ["vazia", "gerando", "pronta", "falhou", "travada"];
 var knownStatuses = new Set(sceneStatuses);
+function createSession(launch, now = new Date().toISOString()) {
+  return {
+    id: crypto.randomUUID(),
+    projectName: launch.theme.trim() || "Sem título",
+    status: "briefing",
+    launch,
+    scenes: [
+      {
+        id: crypto.randomUUID(),
+        index: 0,
+        title: "",
+        narration: "",
+        prompt: "",
+        durationSeconds: launch.durationSeconds,
+        status: "vazia",
+        filePath: null
+      }
+    ],
+    createdAt: now,
+    updatedAt: now
+  };
+}
 
 // shared/store.ts
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 function fileOf(root, id) {
   return join(root, `${id}.json`);
 }
@@ -78,6 +98,11 @@ function registerSessionIpc() {
   ipcMain.handle("moviola:list", () => listSessions(root));
   ipcMain.handle("moviola:read", (_event, id) => readSession(root, id));
   ipcMain.handle("moviola:writeLaunch", (_event, id, launch) => writeLaunch(root, id, launch, new Date().toISOString()));
+  ipcMain.handle("moviola:create", async (_event, launch) => {
+    const session = createSession(launch, new Date().toISOString());
+    await saveSession(root, session);
+    return session;
+  });
 }
 app.whenReady().then(async () => {
   registerSessionIpc();
@@ -117,6 +142,23 @@ app.whenReady().then(async () => {
     console.log(`RECENTS ${JSON.stringify(recents)}`);
     console.log(`STORED ${JSON.stringify(stored)}`);
     const ok = JSON.stringify(recents.names) === JSON.stringify(stored) && recents.empty === stored.length > 0;
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (check === "026") {
+    const navigated = new Promise((resolve) => {
+      win.webContents.once("did-finish-load", () => resolve());
+    });
+    const id = await win.webContents.executeJavaScript("(async()=>{const input=document.getElementById('themeInput');input.value='Viagem de barco';input.dispatchEvent(new Event('input',{bubbles:true}));return window.moviolaForm.createVideo();})()");
+    await navigated;
+    const url2 = win.webContents.getURL();
+    const title = await win.webContents.executeJavaScript("window.moviolaRoom");
+    const saved = await readSession(sessionsRoot(), id);
+    console.log(`CREATED ${id}`);
+    console.log(`URL ${url2}`);
+    console.log(`TITLE ${title}`);
+    console.log(`FILE ${saved.projectName}`);
+    const ok = url2.includes("criacao/index.html") && url2.includes(id) && title === "Viagem de barco" && saved.projectName === "Viagem de barco" && saved.status === "briefing";
     app.exit(ok ? 0 : 1);
     return;
   }

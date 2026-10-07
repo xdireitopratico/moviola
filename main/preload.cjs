@@ -9,5 +9,8 @@ import_electron.contextBridge.exposeInMainWorld("moviola", {
   },
   writeLaunch(id, launch) {
     return import_electron.ipcRenderer.invoke("moviola:writeLaunch", id, launch);
+  },
+  create(launch) {
+    return import_electron.ipcRenderer.invoke("moviola:create", launch);
   }
 });
