@@ -52,6 +52,8 @@ test("030 cada operação acrescenta um evento", () => {
   const opened = openSession(launch, "2026-10-06T00:00:00.000Z");
   const filled = storyboard(opened.session, "2026-10-06T01:00:00.000Z");
   expect(opened.event.operation).toBe("createSession");
+  expect(opened.session.lastEvent).toEqual(opened.event);
   expect(filled.event.operation).toBe("fillStoryboard");
+  expect(filled.session.lastEvent).toEqual(filled.event);
   expect(filled.event.sessionId).toBe(opened.session.id);
 });

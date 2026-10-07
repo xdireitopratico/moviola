@@ -3,6 +3,10 @@ import { app, BrowserWindow, ipcMain } from "electron";
 import { join as join2 } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// shared/store.ts
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
 // shared/contract.ts
 var sceneStatuses = ["vazia", "gerando", "pronta", "falhou", "travada"];
 var knownStatuses = new Set(sceneStatuses);
@@ -25,13 +29,12 @@ function createSession(launch, now = new Date().toISOString()) {
       }
     ],
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
+    lastEvent: null
   };
 }
 
 // shared/store.ts
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 function fileOf(root, id) {
   return join(root, `${id}.json`);
 }
@@ -86,6 +89,16 @@ async function writeLaunch(root, id, launch, now) {
   return next;
 }
 
+// shared/operations.ts
+function record(sessionId, at, operation, detail) {
+  return { id: crypto.randomUUID(), sessionId, at, operation, detail };
+}
+function openSession(launch, now) {
+  const session = createSession(launch, now);
+  const event = record(session.id, now, "createSession", session.projectName);
+  return { session: { ...session, lastEvent: event }, event };
+}
+
 // main/index.ts
 var here = fileURLToPath(new URL(".", import.meta.url));
 function sessionsRoot() {
@@ -99,9 +112,9 @@ function registerSessionIpc() {
   ipcMain.handle("moviola:read", (_event, id) => readSession(root, id));
   ipcMain.handle("moviola:writeLaunch", (_event, id, launch) => writeLaunch(root, id, launch, new Date().toISOString()));
   ipcMain.handle("moviola:create", async (_event, launch) => {
-    const session = createSession(launch, new Date().toISOString());
-    await saveSession(root, session);
-    return session;
+    const opened = openSession(launch, new Date().toISOString());
+    await saveSession(root, opened.session);
+    return opened.session;
   });
 }
 app.whenReady().then(async () => {
@@ -152,13 +165,28 @@ app.whenReady().then(async () => {
     const id = await win.webContents.executeJavaScript("(async()=>{const input=document.getElementById('themeInput');input.value='Viagem de barco';input.dispatchEvent(new Event('input',{bubbles:true}));return window.moviolaForm.createVideo();})()");
     await navigated;
     const url2 = win.webContents.getURL();
-    const title = await win.webContents.executeJavaScript("window.moviolaRoom");
+    const room = await win.webContents.executeJavaScript("window.moviolaRoom");
+    const title = room.title;
     const saved = await readSession(sessionsRoot(), id);
     console.log(`CREATED ${id}`);
     console.log(`URL ${url2}`);
     console.log(`TITLE ${title}`);
     console.log(`FILE ${saved.projectName}`);
     const ok = url2.includes("criacao/index.html") && url2.includes(id) && title === "Viagem de barco" && saved.projectName === "Viagem de barco" && saved.status === "briefing";
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (check === "031") {
+    const navigated = new Promise((resolve) => {
+      win.webContents.once("did-finish-load", () => resolve());
+    });
+    await win.webContents.executeJavaScript("(async()=>{const input=document.getElementById('themeInput');input.value='Viagem de barco';input.dispatchEvent(new Event('input',{bubbles:true}));return window.moviolaForm.createVideo();})()");
+    await navigated;
+    const room = await win.webContents.executeJavaScript("window.moviolaRoom");
+    const pages = await win.webContents.executeJavaScript("document.querySelectorAll('.step').length");
+    console.log(`EVENT ${room.event}`);
+    console.log(`STEPS ${pages}`);
+    const ok = room.event === "createSession · Viagem de barco" && pages === 3;
     app.exit(ok ? 0 : 1);
     return;
   }

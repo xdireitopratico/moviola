@@ -28,6 +28,7 @@ export interface Session {
   scenes: Scene[];
   createdAt: string;
   updatedAt: string;
+  lastEvent: ActivityEvent | null;
 }
 
 export interface ActivityEvent {
@@ -84,6 +85,7 @@ export function createSession(launch: Launch, now = new Date().toISOString()): S
     ],
     createdAt: now,
     updatedAt: now,
+    lastEvent: null,
   };
 }
 

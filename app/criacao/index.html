@@ -4,31 +4,182 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Moviola — Criação</title>
-<link rel="stylesheet" href="../entrada/entrada.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./criacao.css">
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-reel" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8.25"/><circle cx="10" cy="5.6" r="1.6"/><circle cx="14.2" cy="8.6" r="1.6"/><circle cx="12.6" cy="13.6" r="1.6"/><circle cx="7.4" cy="13.6" r="1.6"/><circle cx="5.8" cy="8.6" r="1.6"/><circle cx="10" cy="10" r=".6"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 16 16"><rect x="6" y="2.5" width="4" height="7" rx="2"/><path d="M4 8a4 4 0 0 0 8 0M8 12v1.8"/></symbol>
+  <symbol id="i-sub" viewBox="0 0 16 16"><rect x="2" y="3.5" width="12" height="9" rx="1"/><path d="M4.5 10.5h3M9 10.5h2.5"/></symbol>
+  <symbol id="i-music" viewBox="0 0 16 16"><path d="M6 12.5V4.2l7-1.4v8.2"/><circle cx="4.8" cy="12.6" r="1.8"/><circle cx="11.5" cy="11.2" r="1.8"/></symbol>
+</svg>
+<div class="grain" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+
 <div class="app">
   <header class="topbar">
     <div class="brand">
+      <svg class="i mark" viewBox="0 0 20 20"><use href="#i-reel"/></svg>
       <span class="word">Moviola</span>
       <span class="div"></span>
-      <span class="proj" id="projectName">Criação</span>
+      <span class="proj" id="projName">Novo projeto</span>
+      <span class="ver">· corte 01</span>
     </div>
     <nav class="steps" aria-label="Etapas">
-      <span class="step"><span class="n">01</span>Entrada</span>
+      <a class="step" href="../entrada/index.html"><span class="n">01</span>Entrada</a>
       <span class="step-sep"></span>
       <span class="step active"><span class="n">02</span>Criação</span>
       <span class="step-sep"></span>
-      <span class="step" aria-disabled="true"><span class="n">03</span>Editor</span>
+      <span class="step" aria-disabled="true" title="Itens seguintes"><span class="n">03</span>Editor</span>
     </nav>
-    <div class="top-right"></div>
-  </header>
-  <main class="stage">
-    <div class="entrada">
-      <p class="label">Sessão</p>
-      <h1 class="display" id="sessionTitle">Criação</h1>
+    <div class="top-right">
+      <span class="saved">Rascunho · local</span>
+      <span class="avatar" title="Renato Darienzo">RD</span>
     </div>
-  </main>
+  </header>
+
+  <div class="work">
+    <section class="sheet-wrap" aria-label="Folha de contato">
+      <div class="sheet-head">
+        <div>
+          <div class="eyebrow label"><span>Roteiro</span><span class="sep"></span><span>Versão 1</span></div>
+          <h1 class="sheet-title" id="sheetTitle">Novo projeto</h1>
+        </div>
+        <div class="sheet-meta">
+          <span>Cenas</span><b id="metaScenes">8</b>
+          <span>Duração</span><b>01:00</b>
+          <span>Formato</span><b>16:9</b>
+          <span>Estilo</span><b>Documental</b>
+        </div>
+      </div>
+
+      <div class="contact-sheet" id="sheet"></div>
+
+      <div class="activity" aria-live="polite">
+        <span class="dot" aria-hidden="true"></span>
+        <span>Último evento · <b id="lastEvent">sem evento</b></span>
+      </div>
+    </section>
+
+    <aside class="side" aria-label="Painel lateral">
+      <div class="side-tabs" role="tablist" aria-label="Painéis">
+        <button type="button" class="side-tab" role="tab" id="tab-narracao" aria-selected="true" aria-controls="panel-narracao" data-panel="narracao">
+          <svg class="i"><use href="#i-mic"/></svg>Narração
+        </button>
+        <button type="button" class="side-tab" role="tab" id="tab-legendas" aria-selected="false" aria-controls="panel-legendas" data-panel="legendas">
+          <svg class="i"><use href="#i-sub"/></svg>Legendas
+        </button>
+        <button type="button" class="side-tab" role="tab" id="tab-trilha" aria-selected="false" aria-controls="panel-trilha" data-panel="trilha">
+          <svg class="i"><use href="#i-music"/></svg>Trilha
+        </button>
+      </div>
+
+      <div class="side-body">
+        <div class="panel" id="panel-narracao" role="tabpanel" aria-labelledby="tab-narracao">
+          <div class="panel-head">
+            <h2>Narração</h2>
+            <p class="panel-sub">Texto da cena selecionada. A gravação no store é o item 033.</p>
+          </div>
+          <div class="field">
+            <span class="label">Voz</span>
+            <div class="seg" role="group" aria-label="Voz">
+              <button type="button" aria-pressed="true">Helena</button>
+              <button type="button" aria-pressed="false">Tomás</button>
+              <button type="button" aria-pressed="false">Lia</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="label">Texto</span>
+            <textarea id="narrationBox" rows="8" spellcheck="false" placeholder="Narração da cena…" style="width:100%;min-height:140px;resize:vertical;background:var(--bg-2);border:1px solid var(--line-2);border-radius:8px;padding:12px;color:var(--fg);caret-color:var(--fg);outline:none;font-size:14px;line-height:1.5"></textarea>
+          </div>
+          <p class="hint-note">Item 036 · abas visíveis. Persistência de narração, legendas e trilha vem depois.</p>
+        </div>
+
+        <div class="panel" id="panel-legendas" role="tabpanel" aria-labelledby="tab-legendas" hidden>
+          <div class="panel-head">
+            <h2>Legendas</h2>
+            <p class="panel-sub">Controles visíveis. Ainda não gravam (item 061).</p>
+          </div>
+          <div class="field row-between">
+            <span class="label">Ativar legendas</span>
+            <button type="button" class="toggle" id="subToggle" aria-pressed="true" aria-label="Ativar legendas"><span class="knob"></span></button>
+          </div>
+          <div class="field">
+            <span class="label">Posição</span>
+            <div class="seg" role="group" aria-label="Posição da legenda" data-group="sub-pos">
+              <button type="button" aria-pressed="false" data-v="top">Topo</button>
+              <button type="button" aria-pressed="true" data-v="bottom">Base</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="label">Fonte</span>
+            <div class="seg" role="group" aria-label="Fonte da legenda" data-group="sub-font">
+              <button type="button" aria-pressed="true" data-v="sans">Sans</button>
+              <button type="button" aria-pressed="false" data-v="serif">Serif</button>
+              <button type="button" aria-pressed="false" data-v="mono">Mono</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="label">Cor</span>
+            <div class="swatches" role="group" aria-label="Cor da legenda">
+              <button type="button" class="swatch" style="--sw:#ece6da" aria-pressed="true" aria-label="Off-white"></button>
+              <button type="button" class="swatch" style="--sw:#ffffff" aria-pressed="false" aria-label="Branco"></button>
+              <button type="button" class="swatch" style="--sw:#f0c36a" aria-pressed="false" aria-label="Âmbar"></button>
+              <button type="button" class="swatch" style="--sw:#7ec8e3" aria-pressed="false" aria-label="Céu"></button>
+            </div>
+          </div>
+          <div class="preview-card">
+            <span class="label" style="display:block;margin-bottom:10px">Prévia</span>
+            <div class="preview-frame" id="subPreview">
+              <span class="preview-sub" id="subSample">Legendas aparecem sobre o quadro.</span>
+            </div>
+          </div>
+          <p class="hint-note">Nada aqui escreve no disco. Só o visual da aba.</p>
+        </div>
+
+        <div class="panel" id="panel-trilha" role="tabpanel" aria-labelledby="tab-trilha" hidden>
+          <div class="panel-head">
+            <h2>Trilha</h2>
+            <p class="panel-sub">Escolha visual de trilha. Ainda não grava (item 061).</p>
+          </div>
+          <div class="field row-between">
+            <span class="label">Música de fundo</span>
+            <button type="button" class="toggle" id="trackToggle" aria-pressed="true" aria-label="Música de fundo"><span class="knob"></span></button>
+          </div>
+          <div class="field">
+            <span class="label">Faixa</span>
+            <div class="chips" id="tracks" role="group" aria-label="Faixas">
+              <button type="button" class="chip" aria-pressed="true" data-v="terra">Terra Roxa</button>
+              <button type="button" class="chip" aria-pressed="false" data-v="porto">Porto Seco</button>
+              <button type="button" class="chip" aria-pressed="false" data-v="mare">Maré Baixa</button>
+              <button type="button" class="chip" aria-pressed="false" data-v="none">Sem trilha</button>
+            </div>
+          </div>
+          <div class="track-card" id="trackCard">
+            <div class="track-wave" aria-hidden="true"></div>
+            <div>
+              <span class="track-name" id="trackName">Piano e cordas — Terra Roxa</span>
+              <span class="track-sub">Volume 28% · fade in 1,2s · fade out 2,0s</span>
+            </div>
+          </div>
+          <div class="field">
+            <span class="label">Volume</span>
+            <div class="seg" role="group" aria-label="Volume" data-group="vol">
+              <button type="button" aria-pressed="false" data-v="12">12%</button>
+              <button type="button" aria-pressed="true" data-v="28">28%</button>
+              <button type="button" aria-pressed="false" data-v="40">40%</button>
+              <button type="button" aria-pressed="false" data-v="55">55%</button>
+            </div>
+          </div>
+          <button type="button" class="btn block" aria-disabled="true" title="Item 061">Aplicar na sessão</button>
+          <p class="hint-note">Nada aqui escreve no disco. Só o visual da aba.</p>
+        </div>
+      </div>
+    </aside>
+  </div>
 </div>
 <script src="./criacao.js"></script>
 </body>

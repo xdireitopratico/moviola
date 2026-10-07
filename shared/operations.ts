@@ -63,10 +63,12 @@ export function fillStoryboard(session: Session, now: string): Session {
 
 export function openSession(launch: Launch, now: string): { session: Session; event: ActivityEvent } {
   const session = createSession(launch, now);
-  return { session, event: record(session.id, now, "createSession", session.projectName) };
+  const event = record(session.id, now, "createSession", session.projectName);
+  return { session: { ...session, lastEvent: event }, event };
 }
 
 export function storyboard(session: Session, now: string): { session: Session; event: ActivityEvent } {
   const next = fillStoryboard(session, now);
-  return { session: next, event: record(session.id, now, "fillStoryboard", `${next.scenes.length} cenas`) };
+  const event = record(session.id, now, "fillStoryboard", `${next.scenes.length} cenas`);
+  return { session: { ...next, lastEvent: event }, event };
 }

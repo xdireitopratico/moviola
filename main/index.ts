@@ -1,8 +1,9 @@
 import { app, BrowserWindow, ipcMain } from "electron";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createSession, type Launch } from "../shared/contract.ts";
+import type { Launch } from "../shared/contract.ts";
 import { launchFrom, writeLaunch } from "../shared/launch.ts";
+import { openSession } from "../shared/operations.ts";
 import { listSessions, readSession, saveSession } from "../shared/store.ts";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -20,9 +21,9 @@ function registerSessionIpc(): void {
     writeLaunch(root, id, launch, new Date().toISOString()),
   );
   ipcMain.handle("moviola:create", async (_event, launch: Launch) => {
-    const session = createSession(launch, new Date().toISOString());
-    await saveSession(root, session);
-    return session;
+    const opened = openSession(launch, new Date().toISOString());
+    await saveSession(root, opened.session);
+    return opened.session;
   });
 }
 
@@ -83,13 +84,28 @@ app.whenReady().then(async () => {
     const id = await win.webContents.executeJavaScript("(async()=>{const input=document.getElementById('themeInput');input.value='Viagem de barco';input.dispatchEvent(new Event('input',{bubbles:true}));return window.moviolaForm.createVideo();})()") as string;
     await navigated;
     const url = win.webContents.getURL();
-    const title = await win.webContents.executeJavaScript("window.moviolaRoom") as string;
+    const room = await win.webContents.executeJavaScript("window.moviolaRoom") as { title: string; event: string };
+    const title = room.title;
     const saved = await readSession(sessionsRoot(), id);
     console.log(`CREATED ${id}`);
     console.log(`URL ${url}`);
     console.log(`TITLE ${title}`);
     console.log(`FILE ${saved.projectName}`);
     const ok = url.includes("criacao/index.html") && url.includes(id) && title === "Viagem de barco" && saved.projectName === "Viagem de barco" && saved.status === "briefing";
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (check === "031") {
+    const navigated = new Promise<void>((resolve) => {
+      win.webContents.once("did-finish-load", () => resolve());
+    });
+    await win.webContents.executeJavaScript("(async()=>{const input=document.getElementById('themeInput');input.value='Viagem de barco';input.dispatchEvent(new Event('input',{bubbles:true}));return window.moviolaForm.createVideo();})()");
+    await navigated;
+    const room = await win.webContents.executeJavaScript("window.moviolaRoom") as { title: string; event: string };
+    const pages = await win.webContents.executeJavaScript("document.querySelectorAll('.step').length") as number;
+    console.log(`EVENT ${room.event}`);
+    console.log(`STEPS ${pages}`);
+    const ok = room.event === "createSession · Viagem de barco" && pages === 3;
     app.exit(ok ? 0 : 1);
     return;
   }
