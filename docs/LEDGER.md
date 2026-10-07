@@ -22,7 +22,7 @@ O nome é Moviola, o que ela batizou no mockup. A versão de produto é `0.1.0-b
 
 Há três salas: Entrada, Criação, Editor. A sala de agentes não existe. O trabalho dela é uma operação por baixo da Criação, e a barra mostra o último evento.
 
-A sessão é um arquivo JSON no disco. Não há Supabase, nem o que já roda na VPS para outros produtos, nem MQTT. O contrato de render é HTTP `POST /api/v1/post-production`. Hoje a porta 8085 está fechada e o `ffmpeg` não está no PATH. Os itens 042 e 044 existem para criar isso, não para assumir que já funciona.
+A sessão é um arquivo JSON no disco. Não há Supabase, nem o que já roda na VPS para outros produtos, nem MQTT. O contrato de render é HTTP `POST /api/v1/post-production`. O `ffmpeg` está no PATH da VPS (`/usr/bin/ffmpeg`). O item 042 sobe o endpoint; o 044 usa o ffmpeg para concatenar clipes.
 
 Gerar a imagem da cena é outro HTTP, de modelo. FFmpeg junta, legenda e mistura. O da máquina e o da VPS recebem o mesmo pedido. O da VPS vem primeiro.
 
@@ -45,45 +45,45 @@ Não faça a Criação, o Editor, recentes ligados em dados, nem o botão que gr
 003. **Eu** — `feito` — `.gitignore` de dependência, build, segredo, sessão e mídia. Verificar: `git status` não mostra `node_modules`.
 004. **Eu** — `feito` — `tsconfig` estrito em `shared/`. Verificar: o typecheck do 002.
 005. **Eu** — `feito` — `README.md` só aponta para este ledger. Verificar: o README não repete a lista.
-006. **Eu** — `aberto` — depende 004 — Tipos em `shared/contract.ts`: sessão, lançamento, cena, cinco estados (`vazia`, `gerando`, `pronta`, `falhou`, `travada`), pedido de pós-produção e evento de atividade. Verificar: `bun run typecheck`.
-007. **Eu** — `aberto` — depende 006 — Teste: sessão nova válida, status `briefing`, cena não travada.
-008. **Eu** — `aberto` — depende 006 — Teste: estado de cena fora dos cinco é rejeitado.
-009. **Eu** — `aberto` — depende 006 — Teste: texto de cena travada não é sobrescrito.
-010. **Eu** — `aberto` — depende 006 — Teste: o portão de completude aponta a cena que falta e não monta o pedido.
-011. **Eu** — `aberto` — depende 006 — Teste: o portão de arquivo recusa clipe marcado pronto sem caminho no disco.
-012. **Eu** — `aberto` — depende 006 — Teste: o pedido feliz ordena as cenas, pede `mp4` e inclui o callback.
-013. **Eu** — `aberto` — depende 007 — Store JSON cria e relê uma sessão no disco da VPS.
-014. **Eu** — `aberto` — depende 013 — Listar sessões recentes pela data.
-015. **Eu** — `aberto` — depende 013 — Gravar tema, duração, formato e estilo.
-016. **Eu** — `aberto` — depende 013 — Gravar a nova ordem das cenas.
-017. **Eu** — `aberto` — depende 013 — Gravar a narração editada.
-018. **Eu** — `aberto` — depende 009, 013 — Gravar a trava da cena.
-019. **Eu** — `aberto` — depende 005 — A janela Electron abre na Entrada.
-020. **Eu** — `aberto` — depende 019 — O processo principal não cita Supabase nem tela de login. Verificar: busca em `main/` sem ocorrência.
-021. **Eu** — `aberto` — depende 019 — A configuração do updater tem dono, repositório e versão, e não publica. Verificar: um teste lê os três campos.
-022. **Lumen** — `aberto` — depende 001 — Entrada com o visual do mockup. Texto de interface com no mínimo 12px. Sem `<select>` nativo. Campo de tema sem anel de foco. Verificar: a sala abre na VPS com tema, duração, formato e estilo.
-023. **Lumen** — `aberto` — depende 022 — Estado vazio, sem projeto de exemplo.
-024. **Lumen** — `aberto` — depende 006, 015 — O preenchido lê e grava o contrato. Não existe um estado de tela paralelo.
-025. **Lumen** — `aberto` — depende 014, 022 — Recentes saem do store.
-026. **Lumen** — `aberto` — depende 013, 022 — "Criar vídeo" grava a sessão e abre a Criação. Verificar: o arquivo existe no disco depois da ação.
-027. **Eu** — `aberto` — depende 013 — `createSession` é a única criação de sessão. A tela e o agente importam essa função.
-028. **Eu** — `aberto` — depende 006 — `fillStoryboard` de teste, sem rede, escreve cenas a partir do tema.
-029. **Eu** — `aberto` — depende 009, 028 — `fillStoryboard` não altera cena travada.
-030. **Eu** — `aberto` — depende 027 — Cada operação acrescenta um evento de atividade.
-031. **Lumen** — `aberto` — depende 030 — A barra mostra o último evento. Não há quarta tela.
-032. **Lumen** — `aberto` — depende 008, 022 — A folha de contato desenha os cinco estados da cena.
-033. **Lumen** — `aberto` — depende 017 — Editar a narração grava no store.
-034. **Lumen** — `aberto` — depende 016 — Reordenar grava no store.
-035. **Lumen** — `aberto` — depende 028 — Regenerar mostra `gerando` e chama a operação. A cena não vira pronta sozinha.
-036. **Lumen** — `aberto` — depende 022 — As abas Legendas e Trilha aparecem e ainda não gravam.
-037. **Lumen** — `aberto` — depende 010 — "Abrir no editor" fica bloqueado e nomeia a cena que segurou.
-038. **Eu** — `aberto` — depende 006 — Cliente HTTP de geração. Sem URL, a cena fica `falhou` com motivo.
-039. **Eu** — `aberto` — depende 038 — Fila local, uma cena por vez, em `gerando` até terminar.
-040. **Eu** — `aberto` — depende 039 — O arquivo do clipe está no disco antes do status `pronta`.
-041. **Eu** — `aberto` — depende 040 — Teste com servidor falso: HTTP 200 grava o arquivo; HTTP 500 marca `falhou`.
-042. **Eu** — `aberto` — depende 012 — Subir na VPS `POST /api/v1/post-production`. Verificar: a porta responde.
-043. **Eu** — `aberto` — depende 042 — O worker recusa os dois portões no mesmo formato dos testes 010 e 011.
-044. **Eu** — `aberto` — depende 042 — Instalar o ffmpeg na VPS se o probe não achar. O worker concatena dois clipes de cor e devolve um mp4.
+006. **Eu** — `feito` — depende 004 — Tipos em `shared/contract.ts`: sessão, lançamento, cena, cinco estados (`vazia`, `gerando`, `pronta`, `falhou`, `travada`), pedido de pós-produção e evento de atividade. Verificar: `bun run typecheck`.
+007. **Eu** — `feito` — depende 006 — Teste: sessão nova válida, status `briefing`, cena não travada.
+008. **Eu** — `feito` — depende 006 — Teste: estado de cena fora dos cinco é rejeitado.
+009. **Eu** — `feito` — depende 006 — Teste: texto de cena travada não é sobrescrito.
+010. **Eu** — `feito` — depende 006 — Teste: o portão de completude aponta a cena que falta e não monta o pedido.
+011. **Eu** — `feito` — depende 006 — Teste: o portão de arquivo recusa clipe marcado pronto sem caminho no disco.
+012. **Eu** — `feito` — depende 006 — Teste: o pedido feliz ordena as cenas, pede `mp4` e inclui o callback.
+013. **Eu** — `feito` — depende 007 — Store JSON cria e relê uma sessão no disco da VPS.
+014. **Eu** — `feito` — depende 013 — Listar sessões recentes pela data.
+015. **Eu** — `feito` — depende 013 — Gravar tema, duração, formato e estilo.
+016. **Eu** — `feito` — depende 013 — Gravar a nova ordem das cenas.
+017. **Eu** — `feito` — depende 013 — Gravar a narração editada.
+018. **Eu** — `feito` — depende 009, 013 — Gravar a trava da cena.
+019. **Eu** — `feito` — depende 005 — A janela Electron abre na Entrada.
+020. **Eu** — `feito` — depende 019 — O processo principal não cita Supabase nem tela de login. Verificar: busca em `main/` sem ocorrência.
+021. **Eu** — `feito` — depende 019 — A configuração do updater tem dono, repositório e versão, e não publica. Verificar: um teste lê os três campos.
+022. **Lumen** — `feito` — depende 001 — Entrada com o visual do mockup. Texto de interface com no mínimo 12px. Sem `<select>` nativo. Campo de tema sem anel de foco. Verificar: a sala abre na VPS com tema, duração, formato e estilo.
+023. **Lumen** — `feito` — depende 022 — Estado vazio, sem projeto de exemplo.
+024. **Lumen** — `feito` — depende 006, 015 — O preenchido lê e grava o contrato. Não existe um estado de tela paralelo.
+025. **Lumen** — `feito` — depende 014, 022 — Recentes saem do store.
+026. **Lumen** — `feito` — depende 013, 022 — "Criar vídeo" grava a sessão e abre a Criação. Verificar: o arquivo existe no disco depois da ação.
+027. **Eu** — `feito` — depende 013 — `createSession` é a única criação de sessão. A tela e o agente importam essa função.
+028. **Eu** — `feito` — depende 006 — `fillStoryboard` de teste, sem rede, escreve cenas a partir do tema.
+029. **Eu** — `feito` — depende 009, 028 — `fillStoryboard` não altera cena travada.
+030. **Eu** — `feito` — depende 027 — Cada operação acrescenta um evento de atividade.
+031. **Lumen** — `feito` — depende 030 — A barra mostra o último evento. Não há quarta tela.
+032. **Lumen** — `feito` — depende 008, 022 — A folha de contato desenha os cinco estados da cena.
+033. **Lumen** — `feito` — depende 017 — Editar a narração grava no store.
+034. **Lumen** — `feito` — depende 016 — Reordenar grava no store.
+035. **Lumen** — `feito` — depende 028 — Regenerar mostra `gerando` e chama a operação. A cena não vira pronta sozinha.
+036. **Lumen** — `feito` — depende 022 — As abas Legendas e Trilha aparecem e ainda não gravam.
+037. **Lumen** — `feito` — depende 010 — "Abrir no editor" fica bloqueado e nomeia a cena que segurou.
+038. **Eu** — `feito` — depende 006 — Cliente HTTP de geração. Sem URL, a cena fica `falhou` com motivo.
+039. **Eu** — `feito` — depende 038 — Fila local, uma cena por vez, em `gerando` até terminar.
+040. **Eu** — `feito` — depende 039 — O arquivo do clipe está no disco antes do status `pronta`.
+041. **Eu** — `feito` — depende 040 — Teste com servidor falso: HTTP 200 grava o arquivo; HTTP 500 marca `falhou`.
+042. **Eu** — `feito` — depende 012 — Subir na VPS `POST /api/v1/post-production`. Verificar: a porta responde.
+043. **Eu** — `feito` — depende 042 — O worker recusa os dois portões no mesmo formato dos testes 010 e 011.
+044. **Eu** — `feito` — depende 042 — Instalar o ffmpeg na VPS se o probe não achar. O worker concatena dois clipes de cor e devolve um mp4.
 045. **Eu** — `aberto` — depende 044 — O callback grava o mp4 e marca a sessão `done` ou `failed`.
 046. **Eu** — `aberto` — depende 045 — Teste do worker com arquivo real, sem resposta forjada.
 047. **Eu** — `aberto` — depende 040, 046 — O app chama o worker e espera `done` ou `failed`.
