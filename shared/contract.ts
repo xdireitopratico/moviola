@@ -21,12 +21,18 @@ export interface Launch {
   style: string;
 }
 
+export const sessionStatuses = ["briefing", "done", "failed"] as const;
+
+export type SessionStatus = (typeof sessionStatuses)[number];
+
 export interface Session {
   id: string;
   projectName: string;
-  status: "briefing";
+  status: SessionStatus;
   launch: Launch;
   scenes: Scene[];
+  outputPath: string | null;
+  reason: string | null;
   createdAt: string;
   updatedAt: string;
   lastEvent: ActivityEvent | null;
@@ -85,6 +91,8 @@ export function createSession(launch: Launch, now = new Date().toISOString()): S
         reason: null,
       },
     ],
+    outputPath: null,
+    reason: null,
     createdAt: now,
     updatedAt: now,
     lastEvent: null,

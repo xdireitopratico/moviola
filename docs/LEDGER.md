@@ -84,14 +84,14 @@ Não faça a Criação, o Editor, recentes ligados em dados, nem o botão que gr
 042. **Eu** — `feito` — depende 012 — Subir na VPS `POST /api/v1/post-production`. Verificar: a porta responde.
 043. **Eu** — `feito` — depende 042 — O worker recusa os dois portões no mesmo formato dos testes 010 e 011.
 044. **Eu** — `feito` — depende 042 — Instalar o ffmpeg na VPS se o probe não achar. O worker concatena dois clipes de cor e devolve um mp4.
-045. **Eu** — `aberto` — depende 044 — O callback grava o mp4 e marca a sessão `done` ou `failed`.
-046. **Eu** — `aberto` — depende 045 — Teste do worker com arquivo real, sem resposta forjada.
+045. **Eu** — `feito` — depende 044 — O callback grava o mp4 e marca a sessão `done` ou `failed`.
+046. **Eu** — `feito` — depende 045 — Teste do worker com arquivo real, sem resposta forjada.
 047. **Eu** — `aberto` — depende 040, 046 — O app chama o worker e espera `done` ou `failed`.
 048. **Eu** — `aberto` — depende 042 — `dry_run` devolve o pedido e não chama o ffmpeg.
 049. **Lumen** — `aberto` — depende 047 — O monitor do Editor toca o mp4 da sessão.
 050. **Lumen** — `aberto` — depende 016, 049 — A faixa V1 mostra os clipes na ordem salva.
 051. **Lumen** — `aberto` — depende 049 — Exportar copia o mp4 para o caminho escolhido.
-052. **Lumen** — `aberto` — depende 010, 037 — Se o render não começou, a sala mostra a cena e o motivo.
+052. **Lumen** — `feito` — depende 010, 037 — Se o render não começou, a sala mostra a cena e o motivo.
 053. **Eu** — `aberto` — depende 026, 047, 051 — Um script na VPS percorre tema, sessão, cenas, clipes, mp4 e exportação, e termina verde.
 054. **Eu** — `aberto` — depende 006 — Contrato de voz: id, velocidade e pausa entre cenas.
 055. **Eu** — `aberto` — depende 054 — A pré-escuta baixa um áudio ou falha com motivo.
