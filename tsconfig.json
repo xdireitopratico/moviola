@@ -6,7 +6,10 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "types": ["node"]
   },
-  "include": ["shared/**/*.ts"]
+  "include": ["shared/**/*.ts"],
+  "exclude": ["shared/**/*.test.ts"]
 }

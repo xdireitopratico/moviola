@@ -8,6 +8,7 @@
     "test": "bun test"
   },
   "devDependencies": {
+    "@types/node": "22.16.5",
     "typescript": "5.8.3"
   }
 }
