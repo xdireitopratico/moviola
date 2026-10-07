@@ -150,3 +150,4 @@ a.step{color:inherit}
 .frame[data-status="pronta"] .frame-ph{color:#b7d3b0}
 .frame[data-status="falhou"] .frame-ph{color:#e0a090}
 .frame[data-status="travada"] .frame-ph{color:#9bb0c9}
+.frame-up{font-size:12px;color:var(--fg-2);margin-left:8px}

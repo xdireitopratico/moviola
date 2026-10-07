@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { Launch } from "../shared/contract.ts";
 import { launchFrom, writeLaunch } from "../shared/launch.ts";
 import { openSession } from "../shared/operations.ts";
-import { listSessions, readSession, saveSession, setNarration } from "../shared/store.ts";
+import { listSessions, readSession, reorderScenes, saveSession, setNarration } from "../shared/store.ts";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 
@@ -28,6 +28,12 @@ function registerSessionIpc(): void {
   ipcMain.handle("moviola:narration", async (_event, id: string, sceneId: string, narration: string) => {
     const current = await readSession(root, id);
     const next = setNarration(current, sceneId, narration, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:reorder", async (_event, id: string, orderedIds: string[]) => {
+    const current = await readSession(root, id);
+    const next = reorderScenes(current, orderedIds, new Date().toISOString());
     await saveSession(root, next);
     return next;
   });
@@ -99,6 +105,26 @@ app.whenReady().then(async () => {
     console.log(`FILE ${saved.projectName}`);
     const ok = url.includes("criacao/index.html") && url.includes(id) && title === "Viagem de barco" && saved.projectName === "Viagem de barco" && saved.status === "briefing";
     app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (check === "034") {
+    const opened = openSession(
+      { theme: "Ordem", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" },
+      "2026-10-06T00:00:00.000Z",
+    );
+    const first = opened.session.scenes[0];
+    if (!first) throw new Error("sessão sem cena");
+    opened.session.scenes = [
+      { ...first, id: "cena-a", index: 0, title: "A" },
+      { ...first, id: "cena-b", index: 1, title: "B" },
+    ];
+    await saveSession(sessionsRoot(), opened.session);
+    await win.loadFile(join(here, "..", "app", "criacao", "index.html"), { query: { session: opened.session.id } });
+    await win.webContents.executeJavaScript("(async()=>{await window.moviolaRoom;const buttons=[...document.querySelectorAll('.frame-up')];buttons[1].click();await window.moviolaReorder();})()");
+    const saved = await readSession(sessionsRoot(), opened.session.id);
+    const order = saved.scenes.map((scene) => `${scene.index}:${scene.id}`).join(",");
+    console.log(`ORDER ${order}`);
+    app.exit(order === "0:cena-b,1:cena-a" ? 0 : 1);
     return;
   }
   if (check === "033") {

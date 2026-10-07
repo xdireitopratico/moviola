@@ -17,4 +17,7 @@ contextBridge.exposeInMainWorld("moviola", {
   setNarration(id: string, sceneId: string, narration: string): Promise<Session> {
     return ipcRenderer.invoke("moviola:narration", id, sceneId, narration);
   },
+  reorder(id: string, orderedIds: string[]): Promise<Session> {
+    return ipcRenderer.invoke("moviola:reorder", id, orderedIds);
+  },
 });

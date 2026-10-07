@@ -1,6 +1,8 @@
 (() => {
 
+  let sheetScenes = [];
   function paintSheet(scenes) {
+    sheetScenes = scenes;
     const board = document.getElementById("sheet");
     if (!board) return;
     const frames = scenes.length ? scenes : [{ index: 0, title: "", status: "vazia", narration: "" }];
@@ -15,6 +17,7 @@
         <div class="frame-top">
           <span class="frame-num">:: CENA ${n}</span>
           <span class="frame-status">${status}</span>
+          <button type="button" class="frame-up">Subir</button>
         </div>
         <div class="frame-canvas"><span class="frame-ph">${status}</span></div>
         <div class="frame-foot">
@@ -49,6 +52,29 @@
     });
   }
   window.moviolaNarration = () => narrationTail;
+
+  let reorderTail = Promise.resolve();
+  const board = document.getElementById("sheet");
+  if (board) {
+    board.addEventListener("click", (event) => {
+      const button = event.target.closest(".frame-up");
+      if (!button || !sessionId || !window.moviola) return;
+      const frame = button.closest(".frame");
+      const id = frame ? frame.getAttribute("data-id") || "" : "";
+      const ids = sheetScenes.map((scene) => scene.id).filter(Boolean);
+      const index = ids.indexOf(id);
+      if (index <= 0) return;
+      const swapped = ids.slice();
+      const previous = swapped[index - 1];
+      swapped[index - 1] = swapped[index];
+      swapped[index] = previous;
+      reorderTail = window.moviola.reorder(sessionId, swapped).then((session) => {
+        paintSheet(session.scenes);
+        return session;
+      });
+    });
+  }
+  window.moviolaReorder = () => reorderTail;
   window.moviolaRoom = (async () => {
     const slot = document.getElementById("lastEvent");
     if (!sessionId || !window.moviola) return { title: "", event: slot ? slot.textContent : "" };
