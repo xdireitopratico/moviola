@@ -754,6 +754,30 @@ async function dubNarration(session, url, destPath, now, fetchImpl = fetch) {
   return { ...session, narrationUrl: destPath, reason: null, updatedAt: now };
 }
 
+// main/updateConfig.ts
+var updateFeed = {
+  owner: "xdireitopratico",
+  repo: "moviola",
+  version: "0.1.0-beta.001",
+  publish: false
+};
+
+// main/releaseCheck.ts
+async function publishedRelease(fetchImpl = fetch) {
+  const tag = `v${updateFeed.version}`;
+  const url = `https://api.github.com/repos/${updateFeed.owner}/${updateFeed.repo}/releases/tags/${tag}`;
+  const response = await fetchImpl(url, {
+    headers: { accept: "application/vnd.github+json", "user-agent": "moviola" }
+  });
+  if (!response.ok)
+    return null;
+  const body = await response.json();
+  const asset = body.assets?.find((item) => typeof item.name === "string" && item.name.endsWith(".exe"))?.name;
+  if (body.tag_name !== tag || !asset)
+    return null;
+  return { tag: body.tag_name, asset };
+}
+
 // main/index.ts
 var here = fileURLToPath(new URL(".", import.meta.url));
 function sessionsRoot() {
@@ -1006,6 +1030,13 @@ app.whenReady().then(async () => {
   registerSessionIpc();
   const probe = process.env.MOVIOLA_PROBE === "1";
   const check = process.env.MOVIOLA_CHECK ?? "";
+  if (check === "100") {
+    const seen = await publishedRelease();
+    console.log(`RELEASE ${JSON.stringify(seen)}`);
+    const ok = seen?.tag === "v0.1.0-beta.001" && Boolean(seen?.asset?.endsWith(".exe"));
+    app.exit(ok ? 0 : 1);
+    return;
+  }
   const win = new BrowserWindow({
     width: 1440,
     height: 900,

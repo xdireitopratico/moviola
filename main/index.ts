@@ -13,6 +13,7 @@ import { ingestLocalVideo, trimClip } from "../shared/ingest.ts";
 import { searchStock, insertStockScene, generateAvatar, fillFromSlides, dubNarration } from "../shared/tools.ts";
 import { removeBackground, colorAdjustmentEnabled } from "../worker/concat.ts";
 import { listSessions, readSession, reorderScenes, saveSession, setNarration, setVoice, setSceneTransform, setTextTracks, setCaptions, setMusic, setBrand, setSceneColorBrightness, replaceScenes } from "../shared/store.ts";
+import { publishedRelease } from "./releaseCheck.ts";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 
@@ -294,6 +295,13 @@ app.whenReady().then(async () => {
   registerSessionIpc();
   const probe = process.env.MOVIOLA_PROBE === "1";
   const check = process.env.MOVIOLA_CHECK ?? "";
+  if (check === "100") {
+    const seen = await publishedRelease();
+    console.log(`RELEASE ${JSON.stringify(seen)}`);
+    const ok = seen?.tag === "v0.1.0-beta.001" && Boolean(seen?.asset?.endsWith(".exe"));
+    app.exit(ok ? 0 : 1);
+    return;
+  }
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
