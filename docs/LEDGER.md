@@ -93,15 +93,15 @@ Não faça a Criação, o Editor, recentes ligados em dados, nem o botão que gr
 051. **Lumen** — `aberto` — depende 049 — Exportar copia o mp4 para o caminho escolhido.
 052. **Lumen** — `feito` — depende 010, 037 — Se o render não começou, a sala mostra a cena e o motivo.
 053. **Eu** — `aberto` — depende 026, 047, 051 — Um script na VPS percorre tema, sessão, cenas, clipes, mp4 e exportação, e termina verde.
-054. **Eu** — `aberto` — depende 006 — Contrato de voz: id, velocidade e pausa entre cenas.
+054. **Eu** — `feito` — depende 006 — Contrato de voz: id, velocidade e pausa entre cenas.
 055. **Eu** — `aberto` — depende 054 — A pré-escuta baixa um áudio ou falha com motivo.
 056. **Eu** — `aberto` — depende 012, 055 — A narração entra no pedido de pós-produção.
 057. **Lumen** — `aberto` — depende 033, 054 — A aba Narração grava voz, velocidade e pausa, e dispara a prévia.
 058. **Eu** — `aberto` — depende 056 — Gerar o SRT a partir da narração.
 059. **Eu** — `aberto` — depende 012, 058 — Com legenda ligada, o pedido leva o SRT.
-060. **Eu** — `aberto` — depende 012 — Com música ligada, o pedido leva arquivo, volume e fades.
+060. **Eu** — `feito` — depende 012 — Com música ligada, o pedido leva arquivo, volume e fades.
 061. **Lumen** — `aberto` — depende 059, 060 — As abas Legendas e Trilha passam a gravar.
-062. **Eu** — `aberto` — depende 044 — Probe do ffmpeg local: achou ou não, com caminho e versão.
+062. **Eu** — `feito` — depende 044 — Probe do ffmpeg local: achou ou não, com caminho e versão.
 063. **Eu** — `aberto` — depende 012, 062 — Com ffmpeg local, o mesmo pedido roda na máquina do app.
 064. **Eu** — `aberto` — depende 047, 063 — Sem ffmpeg local, o mesmo pedido vai para a VPS. São dois testes.
 065. **Eu** — `aberto` — depende 041 — Regenerar pelo inspetor usa a mesma fila.

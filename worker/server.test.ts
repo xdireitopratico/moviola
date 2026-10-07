@@ -122,6 +122,7 @@ test("048 dry_run devolve o pedido e não chama o ffmpeg", async () => {
       projectName: session.projectName,
       clips: ["/clipes/inexistente-0.mp4", "/clipes/inexistente-1.mp4"],
       narrationUrl: null,
+      music: null,
       outputFormat: "mp4",
       callback: "app://callback",
     },

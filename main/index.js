@@ -31,6 +31,18 @@ async function exportOutput(session, choosePath, copy = copyFile, probe = (path)
 // shared/contract.ts
 var sceneStatuses = ["vazia", "gerando", "pronta", "falhou", "travada"];
 var knownStatuses = new Set(sceneStatuses);
+function defaultVoice() {
+  return { id: "", speed: 1, pauseBetweenScenesSeconds: 0 };
+}
+function defaultMusic() {
+  return {
+    enabled: false,
+    filePath: null,
+    volume: 0.3,
+    fadeInSeconds: 0,
+    fadeOutSeconds: 0
+  };
+}
 function createSession(launch, now = new Date().toISOString()) {
   return {
     id: crypto.randomUUID(),
@@ -50,6 +62,8 @@ function createSession(launch, now = new Date().toISOString()) {
         reason: null
       }
     ],
+    voice: defaultVoice(),
+    music: defaultMusic(),
     outputPath: null,
     reason: null,
     createdAt: now,
@@ -61,6 +75,16 @@ function writeSceneText(scene, narration) {
   if (scene.status === "travada")
     return { ok: false, scene };
   return { ok: true, scene: { ...scene, narration } };
+}
+function musicForRequest(music) {
+  if (!music.enabled || !music.filePath)
+    return null;
+  return {
+    filePath: music.filePath,
+    volume: music.volume,
+    fadeInSeconds: music.fadeInSeconds,
+    fadeOutSeconds: music.fadeOutSeconds
+  };
 }
 function buildPostProdRequest(session, callback) {
   const ordered = [...session.scenes].sort((a, b) => a.index - b.index);
@@ -89,6 +113,7 @@ function buildPostProdRequest(session, callback) {
       projectName: session.projectName,
       clips: ordered.map((scene) => scene.filePath),
       narrationUrl: null,
+      music: musicForRequest(session.music),
       outputFormat: "mp4",
       callback
     }
