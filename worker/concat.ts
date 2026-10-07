@@ -88,3 +88,17 @@ export async function renderClipEffects(effects: ClipRequest[], dest: string): P
   }
   await concatClips(prepared, dest);
 }
+
+
+export async function removeBackground(source: string, dest: string, keyColor = "0x00FF00"): Promise<void> {
+  await run("ffmpeg", [
+    "-y",
+    "-i",
+    source,
+    "-vf",
+    `colorkey=${keyColor}:0.3:0.2`,
+    "-pix_fmt",
+    "yuva420p",
+    dest,
+  ]);
+}

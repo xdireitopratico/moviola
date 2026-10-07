@@ -80,6 +80,8 @@ describe("store", () => {
         opacity: 1,
         kenBurns: { enabled: false, startScale: 1, endScale: 1.1 },
         colorBrightness: 0,
+        translation: null,
+        score: null,
       };
       const first = session.scenes[0];
       if (!first) throw new Error("sessão sem cena");

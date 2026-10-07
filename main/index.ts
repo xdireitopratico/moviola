@@ -264,6 +264,8 @@ app.whenReady().then(async () => {
       opacity: 1,
       kenBurns: { enabled: false, startScale: 1, endScale: 1.1 },
       colorBrightness: 0,
+      translation: null,
+      score: null,
     }));
     await saveSession(sessionsRoot(), opened.session);
     await win.loadFile(join(here, "..", "app", "criacao", "index.html"), { query: { session: opened.session.id } });

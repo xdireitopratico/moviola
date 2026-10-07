@@ -91,6 +91,8 @@ function defaultScene(partial) {
     opacity: 1,
     kenBurns: defaultKenBurns(),
     colorBrightness: 0,
+    translation: null,
+    score: null,
     ...partial
   };
 }
@@ -586,7 +588,9 @@ app.whenReady().then(async () => {
       positionY: 0,
       opacity: 1,
       kenBurns: { enabled: false, startScale: 1, endScale: 1.1 },
-      colorBrightness: 0
+      colorBrightness: 0,
+      translation: null,
+      score: null
     }));
     await saveSession(sessionsRoot(), opened.session);
     await win.loadFile(join2(here, "..", "app", "criacao", "index.html"), { query: { session: opened.session.id } });

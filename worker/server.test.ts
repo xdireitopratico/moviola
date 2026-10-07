@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSession, type Scene, type Session } from "../shared/contract.ts";
-import { applyColor, colorAdjustmentEnabled, colorClip, splitClip } from "./concat.ts";
+import { applyColor, colorAdjustmentEnabled, colorClip, removeBackground, splitClip } from "./concat.ts";
 import { decide, startPostProd } from "./server.ts";
 
 const launch = {
@@ -27,6 +27,8 @@ function scene(patch: Partial<Scene> & Pick<Scene, "id" | "index" | "status">): 
     opacity: 1,
     kenBurns: { enabled: false, startScale: 1, endScale: 1.1 },
     colorBrightness: 0,
+    translation: null,
+    score: null,
     ...patch,
   };
 }
@@ -221,6 +223,23 @@ test("071 a lâmina divide o clipe em dois trechos", async () => {
     });
     expect(Number(await new Response(leftProbe.stdout).text())).toBeGreaterThan(0.5);
     expect(Number(await new Response(rightProbe.stdout).text())).toBeGreaterThan(0.5);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+
+test("090 remoção de fundo é um passo do worker", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "moviola-090-"));
+  const src = join(dir, "in.mp4");
+  const dest = join(dir, "out.webm");
+  try {
+    await colorClip(src, "green");
+    // write as mp4 then colorkey; output may be small but must succeed
+    const out = join(dir, "out.mp4");
+    await removeBackground(src, out, "0x00FF00");
+    const bytes = await readFile(out);
+    expect(bytes.byteLength).toBeGreaterThan(50);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

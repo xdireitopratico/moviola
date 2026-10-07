@@ -29,6 +29,8 @@ function scene(patch: Partial<Scene> & Pick<Scene, "id" | "index" | "status">): 
     opacity: 1,
     kenBurns: { enabled: false, startScale: 1, endScale: 1.1 },
     colorBrightness: 0,
+    translation: null,
+    score: null,
     ...patch,
   };
 }

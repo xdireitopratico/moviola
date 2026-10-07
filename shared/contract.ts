@@ -24,6 +24,8 @@ export interface Scene {
   opacity: number;
   kenBurns: KenBurns;
   colorBrightness: number;
+  translation: string | null;
+  score: number | null;
 }
 
 export interface Launch {
@@ -171,6 +173,8 @@ export function defaultScene(partial: Partial<Scene> & Pick<Scene, "id" | "index
     opacity: 1,
     kenBurns: defaultKenBurns(),
     colorBrightness: 0,
+    translation: null,
+    score: null,
     ...partial,
   };
 }
@@ -264,4 +268,12 @@ export function buildPostProdRequest(session: Session, callback: string): PostPr
       callback,
     },
   };
+}
+
+export function setTranslation(scene: Scene, translation: string): Scene {
+  return { ...scene, translation };
+}
+
+export function auditScene(scene: Scene, score: number | null): Scene {
+  return { ...scene, score };
 }

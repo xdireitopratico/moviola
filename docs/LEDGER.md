@@ -106,14 +106,14 @@ Não faça a Criação, o Editor, recentes ligados em dados, nem o botão que gr
 064. **Eu** — `feito` — depende 047, 063 — Sem ffmpeg local, o mesmo pedido vai para a VPS. São dois testes.
 065. **Eu** — `feito` — depende 041 — Regenerar pelo inspetor usa a mesma fila.
 066. **Eu** — `feito` — depende 006 — Escala, posição e opacidade do clipe entram no contrato e sobrevivem a reabrir a sessão.
-067. **Lumen** — `aberto` — depende 066 — O inspetor Clipe edita escala, posição e opacidade.
+067. **Lumen** — `feito` — depende 066 — O inspetor Clipe edita escala, posição e opacidade.
 068. **Eu** — `feito` — depende 044, 066 — Ken Burns entra no pedido e o worker aplica.
 069. **Eu** — `feito` — depende 044 — Cor: o worker aplica um ajuste, ou a aba fica desabilitada. O teste prova qual dos dois vale, e que a aba desabilitada não grava.
 070. **Lumen** — `aberto` — depende 069 — A aba Cor segue a decisão do 069.
 071. **Eu** — `feito` — depende 044 — A lâmina divide o clipe e o worker renderiza os dois trechos.
 072. **Lumen** — `aberto` — depende 071 — A ferramenta lâmina chama essa operação.
 073. **Eu** — `feito` — depende 012 — A faixa de texto entra no pedido.
-074. **Lumen** — `aberto` — depende 073 — A faixa V2 edita esse texto.
+074. **Lumen** — `feito` — depende 073 — A faixa V2 edita esse texto.
 075. **Eu** — `feito` — depende 044 — Faixa travada não entra no render seguinte.
 076. **Eu** — `feito` — depende 066 — Desfazer e refazer uma edição de clipe.
 077. **Lumen** — `aberto` — depende 076 — Os botões desfazer e refazer chamam essa operação.
@@ -122,15 +122,15 @@ Não faça a Criação, o Editor, recentes ligados em dados, nem o botão que gr
 080. **Eu** — `aberto` — depende 021, 079 — O updater aponta para as GitHub Releases deste repositório, ainda sem release publicada.
 081. **Eu** — `feito` — depende 006 — A marca começa vazia. Verificar: busca no repositório não acha "Direito Prático".
 082. **Lumen** — `aberto` — depende 081 — O campo de marca no inspetor abre vazio.
-083. **Eu** — `aberto` — depende 040 — Ingerir um vídeo local cria um clipe com a duração lida do arquivo.
-084. **Eu** — `aberto` — depende 071 — Recortar um trecho desse arquivo.
-085. **Eu** — `aberto` — depende 009 — Traduzir o texto de uma cena guarda a tradução ao lado. Cena travada não perde o original.
-086. **Eu** — `aberto` — depende 056 — A dublagem gera outro áudio e substitui a narração da sessão.
-087. **Eu** — `aberto` — depende 038 — A busca de stock devolve opções. Inserir cria uma cena na mesma fila.
-088. **Eu** — `aberto` — depende 038 — Avatar usa a mesma fila de geração.
-089. **Eu** — `aberto` — depende 028 — Slides viram cenas pelo mesmo `fillStoryboard`.
-090. **Eu** — `aberto` — depende 044 — Remoção de fundo é um passo do worker, com teste em um clipe.
-091. **Eu** — `aberto` — depende 008 — A auditoria grava `score` na cena. Sem auditoria, o campo é nulo.
+083. **Eu** — `feito` — depende 040 — Ingerir um vídeo local cria um clipe com a duração lida do arquivo.
+084. **Eu** — `feito` — depende 071 — Recortar um trecho desse arquivo.
+085. **Eu** — `feito` — depende 009 — Traduzir o texto de uma cena guarda a tradução ao lado. Cena travada não perde o original.
+086. **Eu** — `feito` — depende 056 — A dublagem gera outro áudio e substitui a narração da sessão.
+087. **Eu** — `feito` — depende 038 — A busca de stock devolve opções. Inserir cria uma cena na mesma fila.
+088. **Eu** — `feito` — depende 038 — Avatar usa a mesma fila de geração.
+089. **Eu** — `feito` — depende 028 — Slides viram cenas pelo mesmo `fillStoryboard`.
+090. **Eu** — `feito` — depende 044 — Remoção de fundo é um passo do worker, com teste em um clipe.
+091. **Eu** — `feito` — depende 008 — A auditoria grava `score` na cena. Sem auditoria, o campo é nulo.
 092. **Lumen** — `aberto` — depende 082, 083, 084, 085, 086, 087, 088, 089, 090, 091 — Essas ferramentas ficam num menu do Editor. Nenhuma vira página.
 093. **Eu** — `aberto` — depende 092 — Não há botão de publicação social. Verificar: a busca na tela não acha ação de publicar.
 094. **Eu** — `aberto` — depende 053, 092 — O script do item 053 roda outra vez e termina verde.
