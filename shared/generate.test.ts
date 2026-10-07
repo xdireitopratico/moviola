@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createServer } from "node:http";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -68,6 +69,48 @@ test("040 o arquivo chega ao disco antes do status pronta", async () => {
       throw new Error("disco");
     })).rejects.toThrow("disco");
   } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+function listen(status: number, body: string): Promise<{ url: string; close: () => Promise<void> }> {
+  const server = createServer((_req, res) => {
+    res.writeHead(status);
+    res.end(body);
+  });
+  return new Promise((resolve) => {
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") throw new Error("porta");
+      resolve({
+        url: `http://127.0.0.1:${address.port}/clip`,
+        close: () => new Promise((done) => server.close(() => done())),
+      });
+    });
+  });
+}
+
+test("041 http 200 grava o arquivo e http 500 marca falhou", async () => {
+  const session = createSession(
+    { theme: "HTTP", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" },
+    "2026-10-06T00:00:00.000Z",
+  );
+  const scene = session.scenes[0];
+  if (!scene) throw new Error("sessão sem cena");
+  const dir = await mkdtemp(join(tmpdir(), "moviola-http-"));
+  const okServer = await listen(200, "mp4");
+  const failServer = await listen(500, "erro");
+  try {
+    const saved = await requestClip(scene, okServer.url, fetch, join(dir, "ok.mp4"));
+    expect(saved.status).toBe("pronta");
+    expect(await readFile(join(dir, "ok.mp4"), "utf8")).toBe("mp4");
+    const failed = await requestClip(scene, failServer.url, fetch, join(dir, "ruim.mp4"));
+    expect(failed.status).toBe("falhou");
+    expect(failed.reason).toBe("http 500");
+    await expect(readFile(join(dir, "ruim.mp4"))).rejects.toThrow();
+  } finally {
+    await okServer.close();
+    await failServer.close();
     await rm(dir, { recursive: true, force: true });
   }
 });

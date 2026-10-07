@@ -3,7 +3,12 @@ import type { Scene } from "./contract.ts";
 
 type WriteClip = (path: string, bytes: Uint8Array) => Promise<void>;
 
-export async function requestClip(scene: Scene, url: string | null, fetchImpl: typeof fetch = fetch): Promise<Scene> {
+export async function requestClip(
+  scene: Scene,
+  url: string | null,
+  fetchImpl: typeof fetch = fetch,
+  destPath: string | null = null,
+): Promise<Scene> {
   if (!url) {
     return { ...scene, status: "falhou", reason: "sem url", filePath: null };
   }
@@ -11,7 +16,9 @@ export async function requestClip(scene: Scene, url: string | null, fetchImpl: t
   if (!response.ok) {
     return { ...scene, status: "falhou", reason: `http ${response.status}`, filePath: null };
   }
-  return scene;
+  if (!destPath) return scene;
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  return storeClip(scene, bytes, destPath);
 }
 
 export async function runQueue(scenes: Scene[], step: (scene: Scene) => Promise<Scene>): Promise<Scene[]> {
