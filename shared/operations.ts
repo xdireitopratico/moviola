@@ -1,4 +1,5 @@
 import { createSession, type ActivityEvent, type Launch, type Scene, type Session } from "./contract.ts";
+import { runQueue } from "./generate.ts";
 
 export { createSession };
 
@@ -49,6 +50,10 @@ function draft(beat: Beat, index: number, durationSeconds: number, id: string): 
     status: "vazia",
     filePath: null,
     reason: null,
+    scale: 1,
+    positionX: 0,
+    positionY: 0,
+    opacity: 1,
   };
 }
 
@@ -80,4 +85,23 @@ export function storyboard(session: Session, now: string): { session: Session; e
   const next = fillStoryboard(session, now);
   const event = record(session.id, now, "fillStoryboard", `${next.scenes.length} cenas`);
   return { session: { ...next, lastEvent: event }, event };
+}
+
+export async function regenerateThroughQueue(
+  session: Session,
+  sceneId: string,
+  step: (scene: Scene) => Promise<Scene>,
+  now: string,
+): Promise<{ session: Session; event: ActivityEvent }> {
+  const marked = regenerateScene(session, sceneId, now);
+  const target = marked.session.scenes.find((scene) => scene.id === sceneId);
+  if (!target) throw new Error(`cena ausente: ${sceneId}`);
+  const finished = await runQueue([target], step);
+  const done = finished[0];
+  if (!done) throw new Error("fila vazia");
+  const scenes = marked.session.scenes.map((scene) => (scene.id === sceneId ? done : scene));
+  return {
+    session: { ...marked.session, scenes, updatedAt: now, lastEvent: marked.event },
+    event: marked.event,
+  };
 }

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createSession } from "./contract.ts";
-import { createSession as createFromOps, fillStoryboard, openSession, regenerateScene, storyboard } from "./operations.ts";
+import { createSession as createFromOps, fillStoryboard, openSession, regenerateScene, regenerateThroughQueue, storyboard } from "./operations.ts";
 
 const launch = {
   theme: "A história do café",
@@ -66,4 +66,32 @@ test("030 cada operação acrescenta um evento", () => {
   expect(filled.event.operation).toBe("fillStoryboard");
   expect(filled.session.lastEvent).toEqual(filled.event);
   expect(filled.event.sessionId).toBe(opened.session.id);
+});
+
+
+test("065 regenerar pelo inspetor usa a mesma fila", async () => {
+  const session = createSession(launch, "2026-10-06T00:00:00.000Z");
+  const scene = session.scenes[0];
+  if (!scene) throw new Error("sem cena");
+  let busy = 0;
+  let max = 0;
+  const seen: string[] = [];
+  const result = await regenerateThroughQueue(
+    session,
+    scene.id,
+    async (current) => {
+      busy += 1;
+      max = Math.max(max, busy);
+      seen.push(current.status);
+      await Promise.resolve();
+      busy -= 1;
+      return { ...current, status: "pronta", filePath: "/clipes/r.mp4", reason: null };
+    },
+    "2026-10-06T02:00:00.000Z",
+  );
+  expect(max).toBe(1);
+  expect(seen).toEqual(["gerando"]);
+  expect(result.event.operation).toBe("regenerateScene");
+  expect(result.session.scenes[0]?.status).toBe("pronta");
+  expect(result.session.scenes[0]?.filePath).toBe("/clipes/r.mp4");
 });
