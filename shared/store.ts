@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { writeSceneText, type Launch, type Session, type VoiceSettings, type TextTrack } from "./contract.ts";
+import { writeSceneText, type Launch, type Session, type Scene, type VoiceSettings, type TextTrack, type MusicSettings, type CaptionsSettings } from "./contract.ts";
 
 function fileOf(root: string, id: string): string {
   return join(root, `${id}.json`);
@@ -117,3 +117,59 @@ export function setTextTracks(session: Session, textTracks: TextTrack[], now: st
   };
 }
 
+export function setCaptions(session: Session, captions: CaptionsSettings, now: string): Session {
+  return {
+    ...session,
+    captions: {
+      enabled: Boolean(captions.enabled),
+      srt: captions.srt == null ? null : String(captions.srt),
+    },
+    updatedAt: now,
+  };
+}
+
+export function setMusic(session: Session, music: MusicSettings, now: string): Session {
+  return {
+    ...session,
+    music: {
+      enabled: Boolean(music.enabled),
+      filePath: music.filePath == null || music.filePath === "" ? null : String(music.filePath),
+      volume: Number(music.volume),
+      fadeInSeconds: Number(music.fadeInSeconds),
+      fadeOutSeconds: Number(music.fadeOutSeconds),
+    },
+    updatedAt: now,
+  };
+}
+
+export function setBrand(session: Session, brand: string, now: string): Session {
+  return {
+    ...session,
+    brand: String(brand ?? ""),
+    updatedAt: now,
+  };
+}
+
+export function setSceneColorBrightness(
+  session: Session,
+  sceneId: string,
+  colorBrightness: number,
+  now: string,
+): Session {
+  return {
+    ...session,
+    updatedAt: now,
+    scenes: session.scenes.map((scene) => {
+      if (scene.id !== sceneId) return scene;
+      return { ...scene, colorBrightness: Number(colorBrightness) };
+    }),
+  };
+}
+
+export function replaceScenes(session: Session, scenes: Scene[], now: string): Session {
+  return {
+    ...session,
+    scenes: scenes.map((scene, index) => ({ ...scene, index })),
+    updatedAt: now,
+  };
+}

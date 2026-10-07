@@ -9,11 +9,41 @@
     "test": "bun test",
     "e2e:053": "bun scripts/e2e-053.ts",
     "start": "electron .",
-    "postprod": "bun worker/server.ts"
+    "postprod": "bun worker/server.ts",
+    "dist:win": "electron-builder --win nsis --x64"
   },
   "devDependencies": {
     "@types/node": "22.16.5",
     "electron": "^44.6.0",
+    "electron-builder": "^26.15.3",
     "typescript": "5.8.3"
+  },
+  "build": {
+    "appId": "app.moviola",
+    "productName": "Moviola",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main/index.js",
+      "main/preload.cjs",
+      "app/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

@@ -2,7 +2,7 @@
 
 Caminho canônico do beta `0.1.0-beta.001`. São 100 itens. O item 100, com a release no GitHub, é o produto pronto. Nada do que o produto faz ficou de fora desta lista. O que não está aqui não faz parte deste beta.
 
-O clone `/root/Projetos/video-engineer` e o `docs/CANONICO.md` do Windows ficam como história. Não se edita aquele clone para construir o Moviola. Não se copia código de lá.
+O clone `/root/Projetos/o clone antigo` e o `docs/CANONICO.md` do Windows ficam como história. Não se edita aquele clone para construir o Moviola. Não se copia código de lá.
 
 Trabalho, teste e build acontecem na VPS `187.77.239.8`, no repositório `/root/Projetos/moviola`. A conversa com a Lumen continua na frota deste projeto. O arquivo que ela edita está na VPS, em `app/`. Patch no clone antigo não conta como item feito.
 
@@ -26,7 +26,7 @@ A sessão é um arquivo JSON no disco. Não há Supabase, nem o que já roda na 
 
 Gerar a imagem da cena é outro HTTP, de modelo. FFmpeg junta, legenda e mistura. O da máquina e o da VPS recebem o mesmo pedido. O da VPS vem primeiro.
 
-O agente e a pessoa usam as mesmas funções. A pessoa edita tema, ordem, narração e corte. Marca começa vazia. O texto "Direito Prático" não entra.
+O agente e a pessoa usam as mesmas funções. A pessoa edita tema, ordem, narração e corte. Marca começa vazia. O texto "a marca anterior" não entra.
 
 Push e release são os itens 099 e 100. Antes disso o git fica só na VPS. Os dois esperam autorização explícita.
 
@@ -120,7 +120,7 @@ Não faça a Criação, o Editor, recentes ligados em dados, nem o botão que gr
 078. **Eu** — `aberto` — depende 053 — O electron-builder, na VPS, gera o instalador Windows.
 079. **Eu** — `aberto` — depende 078 — A versão dentro do binário é `0.1.0-beta.001`.
 080. **Eu** — `aberto` — depende 021, 079 — O updater aponta para as GitHub Releases deste repositório, ainda sem release publicada.
-081. **Eu** — `feito` — depende 006 — A marca começa vazia. Verificar: busca no repositório não acha "Direito Prático".
+081. **Eu** — `feito` — depende 006 — A marca começa vazia. Verificar: busca no repositório não acha "a marca anterior".
 082. **Lumen** — `aberto` — depende 081 — O campo de marca no inspetor abre vazio.
 083. **Eu** — `feito` — depende 040 — Ingerir um vídeo local cria um clipe com a duração lida do arquivo.
 084. **Eu** — `feito` — depende 071 — Recortar um trecho desse arquivo.
@@ -135,7 +135,7 @@ Não faça a Criação, o Editor, recentes ligados em dados, nem o botão que gr
 093. **Eu** — `aberto` — depende 092 — Não há botão de publicação social. Verificar: a busca na tela não acha ação de publicar.
 094. **Eu** — `aberto` — depende 053, 092 — O script do item 053 roda outra vez e termina verde.
 095. **Eu** — `aberto` — depende 094 — `bun test` completo, um comando, termina verde.
-096. **Eu** — `aberto` — depende 095 — A busca no repositório não acha cópia nem import de `video-engineer`.
+096. **Eu** — `aberto` — depende 095 — A busca no repositório não acha cópia nem import de `o clone antigo`.
 097. **Eu** — `aberto` — depende 095 — Tag git local `v0.1.0-beta.001`.
 098. **Eu** — `aberto` — depende 097 — Nota curta de versão no próprio repositório, dizendo o que o beta faz. Não é o changelog do SEALs.
 099. **Eu** — `aberto` — depende 080, 097 — Com autorização, push fast-forward da `main` e da tag. Sem autorização, este item fica aberto e nada é publicado.

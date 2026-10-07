@@ -33,7 +33,7 @@
       <span class="step-sep"></span>
       <span class="step active"><span class="n">02</span>Criação</span>
       <span class="step-sep"></span>
-      <span class="step" aria-disabled="true" title="Itens seguintes"><span class="n">03</span>Editor</span>
+      <a class="step" id="linkEditor" href="../editor/index.html"><span class="n">03</span>Editor</a>
     </nav>
     <div class="top-right">
       <span class="saved">Rascunho · local</span>
@@ -83,31 +83,51 @@
         <div class="panel" id="panel-narracao" role="tabpanel" aria-labelledby="tab-narracao">
           <div class="panel-head">
             <h2>Narração</h2>
-            <p class="panel-sub">Texto da cena selecionada. A gravação no store é o item 033.</p>
+            <p class="panel-sub">Texto da cena, voz, velocidade e pausa. A prévia dispara o áudio.</p>
           </div>
           <div class="field">
             <span class="label">Voz</span>
-            <div class="seg" role="group" aria-label="Voz">
-              <button type="button" aria-pressed="true">Helena</button>
-              <button type="button" aria-pressed="false">Tomás</button>
-              <button type="button" aria-pressed="false">Lia</button>
+            <div class="seg" role="group" aria-label="Voz" data-group="voice-id" id="voiceIdSeg">
+              <button type="button" data-v="helena" aria-pressed="false">Helena</button>
+              <button type="button" data-v="tomas" aria-pressed="false">Tomás</button>
+              <button type="button" data-v="lia" aria-pressed="false">Lia</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="label">Velocidade</span>
+            <div class="seg" role="group" aria-label="Velocidade" data-group="voice-speed" id="voiceSpeedSeg">
+              <button type="button" data-v="0.8" aria-pressed="false">0,8×</button>
+              <button type="button" data-v="1" aria-pressed="true">1×</button>
+              <button type="button" data-v="1.25" aria-pressed="false">1,25×</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="label">Pausa entre cenas</span>
+            <div class="seg" role="group" aria-label="Pausa entre cenas" data-group="voice-pause" id="voicePauseSeg">
+              <button type="button" data-v="0" aria-pressed="true">0 s</button>
+              <button type="button" data-v="0.5" aria-pressed="false">0,5 s</button>
+              <button type="button" data-v="1" aria-pressed="false">1 s</button>
             </div>
           </div>
           <div class="field">
             <span class="label">Texto</span>
             <textarea id="narrationBox" rows="8" spellcheck="false" placeholder="Narração da cena…" style="width:100%;min-height:140px;resize:vertical;background:var(--bg-2);border:1px solid var(--line-2);border-radius:8px;padding:12px;color:var(--fg);caret-color:var(--fg);outline:none;font-size:14px;line-height:1.5"></textarea>
           </div>
-          <p class="hint-note">Item 036 · abas visíveis. Persistência de narração, legendas e trilha vem depois.</p>
+          <div class="field" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <button type="button" class="btn" id="btnPreviewVoice">Prévia</button>
+            <span class="hint-note" id="voicePreviewStatus" style="margin:0">Sem prévia ainda</span>
+          </div>
+          <p class="hint-note">Voz, velocidade e pausa gravam no contrato da sessão.</p>
         </div>
 
         <div class="panel" id="panel-legendas" role="tabpanel" aria-labelledby="tab-legendas" hidden>
           <div class="panel-head">
             <h2>Legendas</h2>
-            <p class="panel-sub">Controles visíveis. Ainda não gravam (item 061).</p>
+            <p class="panel-sub">Liga e grava legendas no contrato da sessão.</p>
           </div>
           <div class="field row-between">
             <span class="label">Ativar legendas</span>
-            <button type="button" class="toggle" id="subToggle" aria-pressed="true" aria-label="Ativar legendas"><span class="knob"></span></button>
+            <button type="button" class="toggle" id="subToggle" aria-pressed="false" aria-label="Ativar legendas"><span class="knob"></span></button>
           </div>
           <div class="field">
             <span class="label">Posição</span>
@@ -139,17 +159,17 @@
               <span class="preview-sub" id="subSample">Legendas aparecem sobre o quadro.</span>
             </div>
           </div>
-          <p class="hint-note">Nada aqui escreve no disco. Só o visual da aba.</p>
+          <p class="hint-note">Ativar legendas grava `captions` no store.</p>
         </div>
 
         <div class="panel" id="panel-trilha" role="tabpanel" aria-labelledby="tab-trilha" hidden>
           <div class="panel-head">
             <h2>Trilha</h2>
-            <p class="panel-sub">Escolha visual de trilha. Ainda não grava (item 061).</p>
+            <p class="panel-sub">Escolha e grava trilha no contrato da sessão.</p>
           </div>
           <div class="field row-between">
             <span class="label">Música de fundo</span>
-            <button type="button" class="toggle" id="trackToggle" aria-pressed="true" aria-label="Música de fundo"><span class="knob"></span></button>
+            <button type="button" class="toggle" id="trackToggle" aria-pressed="false" aria-label="Música de fundo"><span class="knob"></span></button>
           </div>
           <div class="field">
             <span class="label">Faixa</span>
@@ -176,8 +196,8 @@
               <button type="button" aria-pressed="false" data-v="55">55%</button>
             </div>
           </div>
-          <button type="button" class="btn block" aria-disabled="true" title="Item 061">Aplicar na sessão</button>
-          <p class="hint-note">Nada aqui escreve no disco. Só o visual da aba.</p>
+          <button type="button" class="btn block" id="btnApplyTrack">Aplicar na sessão</button>
+          <p class="hint-note">Música, volume e fades gravam no store.</p>
         </div>
       </div>
     </aside>

@@ -181,6 +181,12 @@ function buildPostProdRequest(session, callback) {
     }
   };
 }
+function setTranslation(scene, translation) {
+  return { ...scene, translation };
+}
+function auditScene(scene, score) {
+  return { ...scene, score };
+}
 
 // shared/callback.ts
 import { writeFile as writeFile2 } from "node:fs/promises";
@@ -202,6 +208,36 @@ async function applyCallback(session, result, destPath, now, write = writeFile2)
     reason: null,
     updatedAt: now
   };
+}
+
+// worker/concat.ts
+import { spawn } from "node:child_process";
+function run(command, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ["ignore", "ignore", "pipe"] });
+    const errors = [];
+    child.stderr.on("data", (chunk) => errors.push(chunk));
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0)
+        resolve();
+      else
+        reject(new Error(Buffer.concat(errors).toString("utf8") || `${command} saiu ${code}`));
+    });
+  });
+}
+var colorAdjustmentEnabled = true;
+async function removeBackground(source, dest, keyColor = "0x00FF00") {
+  await run("ffmpeg", [
+    "-y",
+    "-i",
+    source,
+    "-vf",
+    `colorkey=${keyColor}:0.3:0.2`,
+    "-pix_fmt",
+    "yuva420p",
+    dest
+  ]);
 }
 
 // shared/postprod.ts
@@ -331,6 +367,54 @@ function setTextTracks(session, textTracks, now) {
     updatedAt: now
   };
 }
+function setCaptions(session, captions, now) {
+  return {
+    ...session,
+    captions: {
+      enabled: Boolean(captions.enabled),
+      srt: captions.srt == null ? null : String(captions.srt)
+    },
+    updatedAt: now
+  };
+}
+function setMusic(session, music, now) {
+  return {
+    ...session,
+    music: {
+      enabled: Boolean(music.enabled),
+      filePath: music.filePath == null || music.filePath === "" ? null : String(music.filePath),
+      volume: Number(music.volume),
+      fadeInSeconds: Number(music.fadeInSeconds),
+      fadeOutSeconds: Number(music.fadeOutSeconds)
+    },
+    updatedAt: now
+  };
+}
+function setBrand(session, brand, now) {
+  return {
+    ...session,
+    brand: String(brand ?? ""),
+    updatedAt: now
+  };
+}
+function setSceneColorBrightness(session, sceneId, colorBrightness, now) {
+  return {
+    ...session,
+    updatedAt: now,
+    scenes: session.scenes.map((scene) => {
+      if (scene.id !== sceneId)
+        return scene;
+      return { ...scene, colorBrightness: Number(colorBrightness) };
+    })
+  };
+}
+function replaceScenes(session, scenes, now) {
+  return {
+    ...session,
+    scenes: scenes.map((scene, index) => ({ ...scene, index })),
+    updatedAt: now
+  };
+}
 
 // shared/launch.ts
 function launchFrom(session) {
@@ -353,9 +437,75 @@ async function writeLaunch(root, id, launch, now) {
   return next;
 }
 
+// shared/generate.ts
+import { writeFile as writeFile4 } from "node:fs/promises";
+async function runQueue(scenes, step) {
+  const ordered = [...scenes].sort((a, b) => a.index - b.index);
+  const done = [];
+  let busy = false;
+  for (const scene of ordered) {
+    if (busy)
+      throw new Error("fila paralela");
+    busy = true;
+    const finished = await step({ ...scene, status: "gerando", reason: null });
+    busy = false;
+    done.push(finished);
+  }
+  return done;
+}
+async function storeClip(scene, bytes, destPath, write = writeFile4) {
+  await write(destPath, bytes);
+  return { ...scene, status: "pronta", filePath: destPath, reason: null };
+}
+
 // shared/operations.ts
 function record(sessionId, at, operation, detail) {
   return { id: crypto.randomUUID(), sessionId, at, operation, detail };
+}
+function beats(theme) {
+  const name = theme.trim() || "Sem título";
+  return [
+    {
+      title: "Abertura",
+      narration: `${name}. O primeiro plano apresenta o tema.`,
+      prompt: `abertura cinematográfica sobre ${name}`
+    },
+    {
+      title: "Desenvolvimento",
+      narration: `O meio de ${name} mostra o que muda.`,
+      prompt: `plano médio sobre ${name}`
+    },
+    {
+      title: "Virada",
+      narration: `A virada de ${name} fica explícita.`,
+      prompt: `close da virada de ${name}`
+    },
+    {
+      title: "Fecho",
+      narration: `${name} termina numa imagem que permanece.`,
+      prompt: `plano final de ${name}`
+    }
+  ];
+}
+function draft(beat, index, durationSeconds, id) {
+  return defaultScene({
+    id,
+    index,
+    title: beat.title,
+    narration: beat.narration,
+    prompt: beat.prompt,
+    durationSeconds
+  });
+}
+function fillStoryboard(session, now) {
+  const duration = Math.max(4, Math.round(session.launch.durationSeconds / 4));
+  const scenes = beats(session.launch.theme).map((beat, index) => {
+    const current = session.scenes.find((scene) => scene.index === index);
+    if (current?.status === "travada")
+      return { ...current, index };
+    return draft(beat, index, duration, current?.id ?? crypto.randomUUID());
+  });
+  return { ...session, scenes, updatedAt: now };
 }
 function openSession(launch, now) {
   const session = createSession(launch, now);
@@ -366,6 +516,242 @@ function regenerateScene(session, sceneId, now) {
   const scenes = session.scenes.map((scene) => scene.id === sceneId ? { ...scene, status: "gerando", filePath: null } : scene);
   const event = record(session.id, now, "regenerateScene", sceneId);
   return { session: { ...session, scenes, updatedAt: now, lastEvent: event }, event };
+}
+function splitScene(session, sceneId, atSeconds, now) {
+  const target = session.scenes.find((scene) => scene.id === sceneId);
+  if (!target)
+    throw new Error(`cena ausente: ${sceneId}`);
+  if (atSeconds <= 0 || atSeconds >= target.durationSeconds) {
+    throw new Error("corte inválido");
+  }
+  const left = defaultScene({
+    ...target,
+    id: crypto.randomUUID(),
+    durationSeconds: atSeconds
+  });
+  const right = defaultScene({
+    ...target,
+    id: crypto.randomUUID(),
+    durationSeconds: target.durationSeconds - atSeconds,
+    filePath: null,
+    status: target.filePath ? "vazia" : target.status
+  });
+  const without = session.scenes.filter((scene) => scene.id !== sceneId);
+  const insertAt = target.index;
+  const scenes = [...without, left, right].sort((a, b) => a.index - b.index).map((scene, index) => {
+    if (scene.id === left.id)
+      return { ...left, index: insertAt };
+    if (scene.id === right.id)
+      return { ...right, index: insertAt + 1 };
+    return { ...scene, index: scene.index >= insertAt ? scene.index + 1 : scene.index };
+  }).sort((a, b) => a.index - b.index).map((scene, index) => ({ ...scene, index }));
+  const event = record(session.id, now, "splitScene", sceneId);
+  return { ...session, scenes, updatedAt: now, lastEvent: event };
+}
+
+// shared/srt.ts
+function stamp(totalSeconds) {
+  const ms = Math.max(0, Math.round(totalSeconds * 1000));
+  const hours = Math.floor(ms / 3600000);
+  const minutes = Math.floor(ms % 3600000 / 60000);
+  const seconds = Math.floor(ms % 60000 / 1000);
+  const millis = ms % 1000;
+  const pad = (n, w = 2) => String(n).padStart(w, "0");
+  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)},${pad(millis, 3)}`;
+}
+function buildSrt(scenes, voice) {
+  const ordered = [...scenes].sort((a, b) => a.index - b.index);
+  const blocks = [];
+  let cursor = 0;
+  let index = 1;
+  for (const scene of ordered) {
+    const text = scene.narration.trim();
+    if (!text) {
+      cursor += scene.durationSeconds + voice.pauseBetweenScenesSeconds;
+      continue;
+    }
+    const start = cursor;
+    const end = cursor + scene.durationSeconds;
+    blocks.push(`${index}
+${stamp(start)} --> ${stamp(end)}
+${text}`);
+    index += 1;
+    cursor = end + voice.pauseBetweenScenesSeconds;
+  }
+  return blocks.join(`
+
+`);
+}
+
+// shared/history.ts
+function createHistory(scenes) {
+  return { past: [], present: scenes.map((scene) => ({ ...scene })), future: [] };
+}
+function editClips(history, next) {
+  return {
+    past: [...history.past, history.present],
+    present: next.map((scene) => ({ ...scene })),
+    future: []
+  };
+}
+function undo(history) {
+  const previous = history.past[history.past.length - 1];
+  if (!previous)
+    return history;
+  return {
+    past: history.past.slice(0, -1),
+    present: previous,
+    future: [history.present, ...history.future]
+  };
+}
+function redo(history) {
+  const next = history.future[0];
+  if (!next)
+    return history;
+  return {
+    past: [...history.past, history.present],
+    present: next,
+    future: history.future.slice(1)
+  };
+}
+
+// shared/ingest.ts
+import { copyFile as copyFile2 } from "node:fs/promises";
+import { spawn as spawn2 } from "node:child_process";
+function run2(command, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn2(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const out = [];
+    const err = [];
+    child.stdout.on("data", (chunk) => out.push(chunk));
+    child.stderr.on("data", (chunk) => err.push(chunk));
+    child.on("error", reject);
+    child.on("close", (code) => {
+      resolve({
+        code: code ?? 1,
+        stdout: Buffer.concat(out).toString("utf8"),
+        stderr: Buffer.concat(err).toString("utf8")
+      });
+    });
+  });
+}
+async function probeDuration(path) {
+  const result = await run2("ffprobe", [
+    "-v",
+    "error",
+    "-show_entries",
+    "format=duration",
+    "-of",
+    "csv=p=0",
+    path
+  ]);
+  if (result.code !== 0)
+    throw new Error(result.stderr || "ffprobe falhou");
+  const duration = Number(result.stdout.trim());
+  if (!Number.isFinite(duration) || duration <= 0)
+    throw new Error("duração inválida");
+  return duration;
+}
+async function ingestLocalVideo(sourcePath, destPath, index = 0) {
+  await copyFile2(sourcePath, destPath);
+  const durationSeconds = await probeDuration(destPath);
+  return defaultScene({
+    id: crypto.randomUUID(),
+    index,
+    title: "Ingerido",
+    durationSeconds,
+    status: "pronta",
+    filePath: destPath
+  });
+}
+async function trimClip(sourcePath, destPath, startSeconds, durationSeconds) {
+  if (startSeconds < 0 || durationSeconds <= 0)
+    throw new Error("recorte inválido");
+  const result = await run2("ffmpeg", [
+    "-y",
+    "-ss",
+    String(startSeconds),
+    "-i",
+    sourcePath,
+    "-t",
+    String(durationSeconds),
+    "-c",
+    "copy",
+    destPath
+  ]);
+  if (result.code !== 0)
+    throw new Error(result.stderr || "ffmpeg trim falhou");
+}
+
+// shared/tools.ts
+import { writeFile as writeFile5 } from "node:fs/promises";
+async function searchStock(query, endpoint, fetchImpl = fetch) {
+  if (!endpoint)
+    throw new Error("sem url");
+  if (!query.trim())
+    return [];
+  const url = new URL(endpoint);
+  url.searchParams.set("q", query);
+  const response = await fetchImpl(url);
+  if (!response.ok)
+    throw new Error(`http ${response.status}`);
+  const payload = await response.json();
+  return payload.results ?? [];
+}
+async function insertStockScene(session, option, destPath, now, fetchImpl = fetch) {
+  const draft2 = defaultScene({
+    id: crypto.randomUUID(),
+    index: session.scenes.length,
+    title: option.title,
+    prompt: option.title,
+    status: "vazia"
+  });
+  const [ready] = await runQueue([draft2], async (scene) => {
+    const response = await fetchImpl(option.url);
+    if (!response.ok) {
+      return { ...scene, status: "falhou", reason: `http ${response.status}`, filePath: null };
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    return storeClip(scene, bytes, destPath);
+  });
+  if (!ready)
+    throw new Error("fila vazia");
+  return {
+    ...session,
+    scenes: [...session.scenes, { ...ready, index: session.scenes.length }],
+    updatedAt: now
+  };
+}
+async function generateAvatar(scene, url, destPath, fetchImpl = fetch) {
+  const [done] = await runQueue([scene], async (current) => {
+    if (!url)
+      return { ...current, status: "falhou", reason: "sem url", filePath: null };
+    const response = await fetchImpl(url);
+    if (!response.ok) {
+      return { ...current, status: "falhou", reason: `http ${response.status}`, filePath: null };
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    return storeClip(current, bytes, destPath);
+  });
+  if (!done)
+    throw new Error("fila vazia");
+  return done;
+}
+function fillFromSlides(session, slides, now) {
+  const theme = slides.map((slide) => slide.trim()).filter(Boolean).join(" — ") || session.launch.theme;
+  return fillStoryboard({ ...session, launch: { ...session.launch, theme } }, now);
+}
+async function dubNarration(session, url, destPath, now, fetchImpl = fetch) {
+  if (!url) {
+    return { ...session, narrationUrl: null, reason: "sem url", updatedAt: now };
+  }
+  const response = await fetchImpl(url);
+  if (!response.ok) {
+    return { ...session, reason: `http ${response.status}`, updatedAt: now };
+  }
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  await writeFile5(destPath, bytes);
+  return { ...session, narrationUrl: destPath, reason: null, updatedAt: now };
 }
 
 // main/index.ts
@@ -443,15 +829,175 @@ function registerSessionIpc() {
     const url = process.env.MOVIOLA_TTS_URL ?? null;
     return previewVoice(voice, sample, url, dest);
   });
-  ipcMain.handle("moviola:setSceneTransform", async (_event, id, sceneId, transform) => {
-    const current = await readSession(root, id);
-    const next = setSceneTransform(current, sceneId, transform, new Date().toISOString());
-    await saveSession(root, next);
-    return next;
-  });
   ipcMain.handle("moviola:setTextTracks", async (_event, id, textTracks) => {
     const current = await readSession(root, id);
     const next = setTextTracks(current, textTracks, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+  const histories = new Map;
+  function historyFor(session) {
+    let history = histories.get(session.id);
+    if (!history) {
+      history = createHistory(session.scenes);
+      histories.set(session.id, history);
+    }
+    return history;
+  }
+  ipcMain.handle("moviola:setCaptions", async (_event, id, captions) => {
+    const current = await readSession(root, id);
+    let nextCaptions = captions ?? defaultCaptions();
+    if (nextCaptions.enabled && !nextCaptions.srt) {
+      nextCaptions = { ...nextCaptions, srt: buildSrt(current.scenes, current.voice ?? defaultVoice()) };
+    }
+    if (!nextCaptions.enabled) {
+      nextCaptions = { ...nextCaptions, srt: null };
+    }
+    const next = setCaptions(current, nextCaptions, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:setMusic", async (_event, id, music) => {
+    const current = await readSession(root, id);
+    const next = setMusic(current, music ?? defaultMusic(), new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:setBrand", async (_event, id, brand) => {
+    const current = await readSession(root, id);
+    const next = setBrand(current, brand ?? "", new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:setSceneColorBrightness", async (_event, id, sceneId, colorBrightness) => {
+    const current = await readSession(root, id);
+    const next = setSceneColorBrightness(current, sceneId, colorBrightness, new Date().toISOString());
+    histories.set(id, editClips(historyFor(current), next.scenes));
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:colorAdjustmentEnabled", () => colorAdjustmentEnabled);
+  ipcMain.handle("moviola:splitScene", async (_event, id, sceneId, atSeconds) => {
+    const current = await readSession(root, id);
+    const next = splitScene(current, sceneId, Number(atSeconds), new Date().toISOString());
+    histories.set(id, editClips(historyFor(current), next.scenes));
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:undo", async (_event, id) => {
+    const current = await readSession(root, id);
+    const history = undo(historyFor(current));
+    histories.set(id, history);
+    const next = replaceScenes(current, history.present, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:redo", async (_event, id) => {
+    const current = await readSession(root, id);
+    const history = redo(historyFor(current));
+    histories.set(id, history);
+    const next = replaceScenes(current, history.present, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:setSceneTransform", async (_event, id, sceneId, transform) => {
+    const current = await readSession(root, id);
+    const next = setSceneTransform(current, sceneId, transform, new Date().toISOString());
+    histories.set(id, editClips(historyFor(current), next.scenes));
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:ingestLocalVideo", async (_event, id) => {
+    const picked = await dialog.showOpenDialog({
+      properties: ["openFile"],
+      filters: [{ name: "Video", extensions: ["mp4", "mov", "mkv", "webm"] }]
+    });
+    if (picked.canceled || !picked.filePaths[0])
+      return readSession(root, id);
+    const current = await readSession(root, id);
+    const dest = join2(root, `${id}-ingest-${Date.now()}.mp4`);
+    const scene = await ingestLocalVideo(picked.filePaths[0], dest, current.scenes.length);
+    const next = replaceScenes(current, [...current.scenes, scene], new Date().toISOString());
+    histories.set(id, editClips(historyFor(current), next.scenes));
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:trimClip", async (_event, id, sceneId, startSeconds, durationSeconds) => {
+    const current = await readSession(root, id);
+    const scene = current.scenes.find((item) => item.id === sceneId);
+    if (!scene?.filePath)
+      throw new Error("cena sem arquivo");
+    const dest = join2(root, `${id}-trim-${Date.now()}.mp4`);
+    await trimClip(scene.filePath, dest, Number(startSeconds), Number(durationSeconds));
+    const scenes = current.scenes.map((item) => item.id === sceneId ? { ...item, filePath: dest, durationSeconds: Number(durationSeconds), status: "pronta" } : item);
+    const next = replaceScenes(current, scenes, new Date().toISOString());
+    histories.set(id, editClips(historyFor(current), next.scenes));
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:setTranslation", async (_event, id, sceneId, translation) => {
+    const current = await readSession(root, id);
+    const scenes = current.scenes.map((scene) => scene.id === sceneId ? setTranslation(scene, String(translation ?? "")) : scene);
+    const next = replaceScenes(current, scenes, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:dubNarration", async (_event, id, url) => {
+    const current = await readSession(root, id);
+    const dest = join2(root, `${id}-dub.wav`);
+    const next = await dubNarration(current, url, dest, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:searchStock", async (_event, query) => {
+    const endpoint = process.env.MOVIOLA_STOCK_URL ?? null;
+    return searchStock(String(query ?? ""), endpoint);
+  });
+  ipcMain.handle("moviola:insertStockScene", async (_event, id, option) => {
+    const current = await readSession(root, id);
+    const dest = join2(root, `${id}-stock-${Date.now()}.mp4`);
+    const next = await insertStockScene(current, option, dest, new Date().toISOString());
+    histories.set(id, editClips(historyFor(current), next.scenes));
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:generateAvatar", async (_event, id, sceneId, url) => {
+    const current = await readSession(root, id);
+    const scene = current.scenes.find((item) => item.id === sceneId);
+    if (!scene)
+      throw new Error("cena ausente");
+    const dest = join2(root, `${id}-avatar-${Date.now()}.mp4`);
+    const done = await generateAvatar(scene, url, dest);
+    const scenes = current.scenes.map((item) => item.id === sceneId ? done : item);
+    const next = replaceScenes(current, scenes, new Date().toISOString());
+    histories.set(id, editClips(historyFor(current), next.scenes));
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:fillFromSlides", async (_event, id, slides) => {
+    const current = await readSession(root, id);
+    const next = fillFromSlides(current, slides ?? [], new Date().toISOString());
+    histories.set(id, editClips(historyFor(current), next.scenes));
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:removeBackground", async (_event, id, sceneId) => {
+    const current = await readSession(root, id);
+    const scene = current.scenes.find((item) => item.id === sceneId);
+    if (!scene?.filePath)
+      throw new Error("cena sem arquivo");
+    const dest = join2(root, `${id}-nobg-${Date.now()}.mp4`);
+    await removeBackground(scene.filePath, dest);
+    const scenes = current.scenes.map((item) => item.id === sceneId ? { ...item, filePath: dest, status: "pronta" } : item);
+    const next = replaceScenes(current, scenes, new Date().toISOString());
+    histories.set(id, editClips(historyFor(current), next.scenes));
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:auditScene", async (_event, id, sceneId, score) => {
+    const current = await readSession(root, id);
+    const scenes = current.scenes.map((scene) => scene.id === sceneId ? auditScene(scene, score == null ? null : Number(score)) : scene);
+    const next = replaceScenes(current, scenes, new Date().toISOString());
     await saveSession(root, next);
     return next;
   });
@@ -610,6 +1156,155 @@ app.whenReady().then(async () => {
     console.log(`EVENT ${room.event}`);
     console.log(`STEPS ${pages}`);
     const ok = room.event === "createSession · Viagem de barco" && pages === 3;
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (check === "061") {
+    const opened = openSession({ theme: "Legendas Trilha", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" }, "2026-10-06T00:00:00.000Z");
+    await saveSession(sessionsRoot(), opened.session);
+    await win.loadFile(join2(here, "..", "app", "criacao", "index.html"), { query: { session: opened.session.id } });
+    await win.webContents.executeJavaScript("window.moviolaRoom");
+    const toggled = await win.webContents.executeJavaScript(`(async()=>{
+      const sub=document.getElementById('subToggle');
+      sub.click();
+      await window.moviolaCaptions();
+      const chip=[...document.querySelectorAll('#tracks .chip')].find(c=>c.dataset.v==='porto');
+      chip.click();
+      await window.moviolaMusic();
+      return {
+        sub: sub.getAttribute('aria-pressed'),
+        track: document.getElementById('trackToggle').getAttribute('aria-pressed'),
+      };
+    })()`);
+    const saved = await readSession(sessionsRoot(), opened.session.id);
+    console.log(`UI ${JSON.stringify(toggled)}`);
+    console.log(`CAPTIONS ${JSON.stringify(saved.captions)}`);
+    console.log(`MUSIC ${JSON.stringify(saved.music)}`);
+    const ok = toggled.sub === "true" && saved.captions.enabled === true && typeof saved.captions.srt === "string" && saved.music.enabled === true && saved.music.filePath === "/trilha/porto-seco.mp3";
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (check === "070") {
+    const opened = openSession({ theme: "Cor", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" }, "2026-10-06T00:00:00.000Z");
+    const scene = opened.session.scenes[0];
+    if (!scene)
+      throw new Error("sem cena");
+    opened.session.scenes = [{ ...scene, status: "pronta", filePath: "/tmp/x.mp4", title: "Clipe" }];
+    opened.session.status = "done";
+    opened.session.outputPath = "/tmp/x.mp4";
+    await saveSession(sessionsRoot(), opened.session);
+    await win.loadFile(join2(here, "..", "app", "editor", "index.html"), { query: { session: opened.session.id } });
+    await win.webContents.executeJavaScript("window.moviolaEditor");
+    const enabled = await win.webContents.executeJavaScript("window.moviola.colorAdjustmentEnabled()");
+    const result = await win.webContents.executeJavaScript(`(async()=>{
+      const cell=document.querySelector('#trackCells .track-cell');
+      if(cell) cell.click();
+      const input=document.getElementById('inspBrightness');
+      const disabled=input ? input.disabled : true;
+      if(input){ input.value='0.15'; input.dispatchEvent(new Event('change',{bubbles:true})); }
+      await window.moviolaColor && window.moviolaColor();
+      return {enabled: await window.moviola.colorAdjustmentEnabled(), disabled, value: input && input.value, cells: document.querySelectorAll("#trackCells .track-cell").length, holdHidden: document.getElementById("holdPanel") && document.getElementById("holdPanel").hidden, fn: typeof window.moviola.setSceneColorBrightness, sel: document.querySelector("#trackCells .track-cell.active") ? true : false};
+    })()`);
+    const saved = await readSession(sessionsRoot(), opened.session.id);
+    console.log(`COLOR ${JSON.stringify(result)} brightness=${saved.scenes[0]?.colorBrightness}`);
+    const ok = enabled === true && result.disabled === false && saved.scenes[0]?.colorBrightness === 0.15;
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (check === "072") {
+    const opened = openSession({ theme: "Lamina", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" }, "2026-10-06T00:00:00.000Z");
+    const scene = opened.session.scenes[0];
+    if (!scene)
+      throw new Error("sem cena");
+    opened.session.scenes = [{ ...scene, id: "clip-a", status: "pronta", filePath: "/tmp/x.mp4", durationSeconds: 4, title: "Clipe" }];
+    opened.session.status = "done";
+    opened.session.outputPath = "/tmp/x.mp4";
+    await saveSession(sessionsRoot(), opened.session);
+    await win.loadFile(join2(here, "..", "app", "editor", "index.html"), { query: { session: opened.session.id } });
+    await win.webContents.executeJavaScript("window.moviolaEditor");
+    const after = await win.webContents.executeJavaScript(`(async()=>{
+      const cell=document.querySelector('#trackCells .track-cell');
+      if(cell) cell.click();
+      document.getElementById('btnBlade').click();
+      await window.moviolaBlade();
+      return (await window.moviola.read(new URLSearchParams(location.search).get('session'))).scenes.length;
+    })()`);
+    const saved = await readSession(sessionsRoot(), opened.session.id);
+    console.log(`SCENES ${after} saved=${saved.scenes.length}`);
+    app.exit(saved.scenes.length === 2 ? 0 : 1);
+    return;
+  }
+  if (check === "077") {
+    const opened = openSession({ theme: "Undo", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" }, "2026-10-06T00:00:00.000Z");
+    const scene = opened.session.scenes[0];
+    if (!scene)
+      throw new Error("sem cena");
+    opened.session.scenes = [{ ...scene, status: "pronta", filePath: "/tmp/x.mp4", title: "Clipe", scale: 1 }];
+    opened.session.status = "done";
+    opened.session.outputPath = "/tmp/x.mp4";
+    await saveSession(sessionsRoot(), opened.session);
+    await win.loadFile(join2(here, "..", "app", "editor", "index.html"), { query: { session: opened.session.id } });
+    await win.webContents.executeJavaScript("window.moviolaEditor");
+    const scales = await win.webContents.executeJavaScript(`(async()=>{
+      const cell=document.querySelector('#trackCells .track-cell');
+      if(cell) cell.click();
+      const scale=document.getElementById('inspScale');
+      scale.value='1.5'; scale.dispatchEvent(new Event('change',{bubbles:true}));
+      await window.moviolaTransform();
+      document.getElementById('btnUndo').click();
+      await window.moviolaUndo();
+      const afterUndo=(await window.moviola.read(new URLSearchParams(location.search).get('session'))).scenes[0].scale;
+      document.getElementById('btnRedo').click();
+      await window.moviolaRedo();
+      const afterRedo=(await window.moviola.read(new URLSearchParams(location.search).get('session'))).scenes[0].scale;
+      return {afterUndo, afterRedo};
+    })()`);
+    console.log(`UNDO ${JSON.stringify(scales)}`);
+    const ok = scales.afterUndo === 1 && scales.afterRedo === 1.5;
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (check === "082") {
+    const opened = openSession({ theme: "Marca", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" }, "2026-10-06T00:00:00.000Z");
+    const scene = opened.session.scenes[0];
+    if (!scene)
+      throw new Error("sem cena");
+    opened.session.scenes = [{ ...scene, status: "pronta", filePath: "/tmp/x.mp4", title: "Clipe" }];
+    opened.session.status = "done";
+    opened.session.outputPath = "/tmp/x.mp4";
+    await saveSession(sessionsRoot(), opened.session);
+    await win.loadFile(join2(here, "..", "app", "editor", "index.html"), { query: { session: opened.session.id } });
+    await win.webContents.executeJavaScript("window.moviolaEditor");
+    const brand = await win.webContents.executeJavaScript(`(async()=>{
+      const cell=document.querySelector('#trackCells .track-cell');
+      if(cell) cell.click();
+      const input=document.getElementById('inspBrand');
+      return {value: input ? input.value : null, exists: !!input};
+    })()`);
+    const saved = await readSession(sessionsRoot(), opened.session.id);
+    console.log(`BRAND ${JSON.stringify(brand)} session=${JSON.stringify(saved.brand)}`);
+    const ok = brand.exists && brand.value === "" && saved.brand === "";
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (check === "092") {
+    const opened = openSession({ theme: "Ferramentas", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" }, "2026-10-06T00:00:00.000Z");
+    opened.session.status = "done";
+    opened.session.outputPath = "/tmp/x.mp4";
+    const scene = opened.session.scenes[0];
+    if (scene)
+      opened.session.scenes = [{ ...scene, status: "pronta", filePath: "/tmp/x.mp4" }];
+    await saveSession(sessionsRoot(), opened.session);
+    await win.loadFile(join2(here, "..", "app", "editor", "index.html"), { query: { session: opened.session.id } });
+    await win.webContents.executeJavaScript("window.moviolaEditor");
+    const menu = await win.webContents.executeJavaScript(`(()=>{
+      const items=[...document.querySelectorAll('#toolsMenu [data-tool]')].map(el=>el.dataset.tool);
+      const pages=[...document.querySelectorAll('.step')].length;
+      return {items, pages, menu: !!document.getElementById('toolsMenu')};
+    })()`);
+    console.log(`TOOLS ${JSON.stringify(menu)}`);
+    const needed = ["ingestLocalVideo", "trimClip", "setTranslation", "dubNarration", "searchStock", "insertStockScene", "generateAvatar", "fillFromSlides", "removeBackground", "auditScene"];
+    const ok = menu.menu && menu.pages === 3 && needed.every((name) => menu.items.includes(name));
     app.exit(ok ? 0 : 1);
     return;
   }

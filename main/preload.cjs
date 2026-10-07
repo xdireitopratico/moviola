@@ -45,5 +45,59 @@ import_electron.contextBridge.exposeInMainWorld("moviola", {
   },
   setTextTracks(id, textTracks) {
     return import_electron.ipcRenderer.invoke("moviola:setTextTracks", id, textTracks);
+  },
+  setCaptions(id, captions) {
+    return import_electron.ipcRenderer.invoke("moviola:setCaptions", id, captions);
+  },
+  setMusic(id, music) {
+    return import_electron.ipcRenderer.invoke("moviola:setMusic", id, music);
+  },
+  setBrand(id, brand) {
+    return import_electron.ipcRenderer.invoke("moviola:setBrand", id, brand);
+  },
+  setSceneColorBrightness(id, sceneId, colorBrightness) {
+    return import_electron.ipcRenderer.invoke("moviola:setSceneColorBrightness", id, sceneId, colorBrightness);
+  },
+  colorAdjustmentEnabled() {
+    return import_electron.ipcRenderer.invoke("moviola:colorAdjustmentEnabled");
+  },
+  splitScene(id, sceneId, atSeconds) {
+    return import_electron.ipcRenderer.invoke("moviola:splitScene", id, sceneId, atSeconds);
+  },
+  undo(id) {
+    return import_electron.ipcRenderer.invoke("moviola:undo", id);
+  },
+  redo(id) {
+    return import_electron.ipcRenderer.invoke("moviola:redo", id);
+  },
+  ingestLocalVideo(id) {
+    return import_electron.ipcRenderer.invoke("moviola:ingestLocalVideo", id);
+  },
+  trimClip(id, sceneId, startSeconds, durationSeconds) {
+    return import_electron.ipcRenderer.invoke("moviola:trimClip", id, sceneId, startSeconds, durationSeconds);
+  },
+  setTranslation(id, sceneId, translation) {
+    return import_electron.ipcRenderer.invoke("moviola:setTranslation", id, sceneId, translation);
+  },
+  dubNarration(id, url) {
+    return import_electron.ipcRenderer.invoke("moviola:dubNarration", id, url);
+  },
+  searchStock(query) {
+    return import_electron.ipcRenderer.invoke("moviola:searchStock", query);
+  },
+  insertStockScene(id, option) {
+    return import_electron.ipcRenderer.invoke("moviola:insertStockScene", id, option);
+  },
+  generateAvatar(id, sceneId, url) {
+    return import_electron.ipcRenderer.invoke("moviola:generateAvatar", id, sceneId, url);
+  },
+  fillFromSlides(id, slides) {
+    return import_electron.ipcRenderer.invoke("moviola:fillFromSlides", id, slides);
+  },
+  removeBackground(id, sceneId) {
+    return import_electron.ipcRenderer.invoke("moviola:removeBackground", id, sceneId);
+  },
+  auditScene(id, sceneId, score) {
+    return import_electron.ipcRenderer.invoke("moviola:auditScene", id, sceneId, score);
   }
 });

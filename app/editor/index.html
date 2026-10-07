@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moviola — Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./editor.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-reel" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8.25"/><circle cx="10" cy="5.6" r="1.6"/><circle cx="14.2" cy="8.6" r="1.6"/><circle cx="12.6" cy="13.6" r="1.6"/><circle cx="7.4" cy="13.6" r="1.6"/><circle cx="5.8" cy="8.6" r="1.6"/><circle cx="10" cy="10" r=".6"/></symbol>
+</svg>
+<div class="grain" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <svg class="i mark" viewBox="0 0 20 20"><use href="#i-reel"/></svg>
+      <span class="word">Moviola</span>
+      <span class="div"></span>
+      <span class="proj" id="projName">Novo projeto</span>
+      <span class="ver">· corte 01</span>
+    </div>
+    <nav class="steps" aria-label="Etapas">
+      <a class="step" id="linkEntrada" href="../entrada/index.html"><span class="n">01</span>Entrada</a>
+      <span class="step-sep"></span>
+      <a class="step" id="linkCriacao" href="../criacao/index.html"><span class="n">02</span>Criação</a>
+      <span class="step-sep"></span>
+      <a class="step active" id="linkEditor" href="./index.html"><span class="n">03</span>Editor</a>
+    </nav>
+    <div class="top-right">
+      <span class="saved" id="savedLabel">Rascunho · local</span>
+      <span class="avatar" title="Renato Darienzo">RD</span>
+    </div>
+  </header>
+
+  <main class="stage" aria-label="Editor">
+    <section class="hold" id="holdPanel" hidden>
+      <div class="eyebrow label"><span>Editor</span><span class="sep"></span><span>Aguardando</span></div>
+      <h1 class="hold-title">Render ainda não começou</h1>
+      <p class="hold-lead">A sala mostra o que segurou o portão. Não há player até o mp4 existir.</p>
+      <div class="hold-card" id="holdCard">
+        <div class="hold-row">
+          <span class="label">Cena</span>
+          <span class="hold-scene" id="holdScene">—</span>
+        </div>
+        <div class="hold-row">
+          <span class="label">Motivo</span>
+          <span class="hold-reason" id="holdReason">—</span>
+        </div>
+      </div>
+      <p class="hint-note" id="holdHint">Volte à Criação para completar a cena, ou abra esta URL de novo depois do render.</p>
+    </section>
+
+    <section class="empty" id="emptyPanel" hidden>
+      <div class="eyebrow label"><span>Editor</span><span class="sep"></span><span>Sessão</span></div>
+      <h1 class="hold-title">Sem sessão</h1>
+      <p class="hold-lead">Abra o Editor com <span class="mono">?session=</span> de um projeto existente.</p>
+    </section>
+
+    <section class="workspace" id="workPanel" hidden>
+      <div class="work-head">
+        <div class="eyebrow label"><span>Editor</span><span class="sep"></span><span>Monitor</span></div>
+        <div class="work-actions">
+          <div class="tools" id="toolsWrap">
+            <button type="button" class="btn" id="btnTools" aria-expanded="false" aria-controls="toolsMenu">Ferramentas</button>
+            <div class="tools-menu" id="toolsMenu" hidden>
+              <button type="button" data-tool="ingestLocalVideo">Ingerir vídeo</button>
+              <button type="button" data-tool="trimClip">Recortar</button>
+              <button type="button" data-tool="setTranslation">Traduzir</button>
+              <button type="button" data-tool="dubNarration">Dublar</button>
+              <button type="button" data-tool="searchStock">Buscar stock</button>
+              <button type="button" data-tool="insertStockScene">Inserir stock</button>
+              <button type="button" data-tool="generateAvatar">Avatar</button>
+              <button type="button" data-tool="fillFromSlides">Slides</button>
+              <button type="button" data-tool="removeBackground">Remover fundo</button>
+              <button type="button" data-tool="auditScene">Auditar</button>
+            </div>
+          </div>
+          <button type="button" class="btn" id="btnBlade" title="Lâmina">Lâmina</button>
+          <button type="button" class="btn" id="btnUndo">Desfazer</button>
+          <button type="button" class="btn" id="btnRedo">Refazer</button>
+          <button type="button" class="btn" id="btnRender" hidden>Render</button>
+          <button type="button" class="btn btn-primary" id="btnExport" hidden>Exportar</button>
+        </div>
+      </div>
+      <p class="status-line" id="statusLine" hidden></p>
+      <div class="monitor-wrap" id="monitorWrap">
+        <div class="monitor-empty" id="monitorEmpty">
+          <p class="monitor-empty-title">Sem mp4 ainda</p>
+          <p class="monitor-empty-lead">Quando o render terminar, o monitor toca o arquivo da sessão.</p>
+        </div>
+        <video id="monitorVideo" class="monitor-video" controls playsinline hidden></video>
+      </div>
+      <div class="track" id="trackV1" aria-label="Faixa V1">
+        <div class="track-label label">V1</div>
+        <div class="track-cells" id="trackCells"></div>
+      </div>
+      <div class="track track-v2" id="trackV2" aria-label="Faixa V2">
+        <div class="track-label label">V2</div>
+        <div class="track-cells" id="trackTextCells"></div>
+      </div>
+      <aside class="inspector" id="clipInspector" hidden>
+        <div class="eyebrow label"><span>Inspetor</span><span class="sep"></span><span>Clipe</span></div>
+        <h2 class="inspector-title" id="inspectorTitle">Clipe</h2>
+        <div class="inspector-grid">
+          <label class="field">
+            <span class="label">Escala</span>
+            <input id="inspScale" type="number" step="0.05" min="0.1" max="5" value="1">
+          </label>
+          <label class="field">
+            <span class="label">Posição X</span>
+            <input id="inspPosX" type="number" step="1" value="0">
+          </label>
+          <label class="field">
+            <span class="label">Posição Y</span>
+            <input id="inspPosY" type="number" step="1" value="0">
+          </label>
+          <label class="field">
+            <span class="label">Opacidade</span>
+            <input id="inspOpacity" type="number" step="0.05" min="0" max="1" value="1">
+          </label>
+          <label class="field" id="colorField">
+            <span class="label">Brilho</span>
+            <input id="inspBrightness" type="number" step="0.05" min="-1" max="1" value="0">
+          </label>
+          <label class="field">
+            <span class="label">Marca</span>
+            <input id="inspBrand" type="text" value="" placeholder="(vazia)" autocomplete="off">
+          </label>
+        </div>
+        <p class="hint-note" id="inspectorHint">Edita o clipe selecionado na faixa V1.</p>
+      </aside>
+    </section>
+  </main>
+</div>
+<script src="./editor.js"></script>
+</body>
+</html>

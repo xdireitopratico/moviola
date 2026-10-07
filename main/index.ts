@@ -3,11 +3,16 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { exportOutput, mediaUrl } from "../shared/media.ts";
 import { previewVoice } from "../shared/voice.ts";
-import { buildPostProdRequest, defaultVoice, type Launch, type VoiceSettings, type TextTrack } from "../shared/contract.ts";
+import { buildPostProdRequest, defaultVoice, defaultMusic, defaultCaptions, setTranslation, auditScene, type Launch, type VoiceSettings, type TextTrack, type CaptionsSettings, type MusicSettings, type Scene } from "../shared/contract.ts";
 import { callWorker } from "../shared/postprod.ts";
 import { launchFrom, writeLaunch } from "../shared/launch.ts";
-import { openSession, regenerateScene } from "../shared/operations.ts";
-import { listSessions, readSession, reorderScenes, saveSession, setNarration, setVoice, setSceneTransform, setTextTracks } from "../shared/store.ts";
+import { openSession, regenerateScene, splitScene } from "../shared/operations.ts";
+import { buildSrt } from "../shared/srt.ts";
+import { createHistory, editClips, undo as undoHistory, redo as redoHistory, type ClipHistory } from "../shared/history.ts";
+import { ingestLocalVideo, trimClip } from "../shared/ingest.ts";
+import { searchStock, insertStockScene, generateAvatar, fillFromSlides, dubNarration } from "../shared/tools.ts";
+import { removeBackground, colorAdjustmentEnabled } from "../worker/concat.ts";
+import { listSessions, readSession, reorderScenes, saveSession, setNarration, setVoice, setSceneTransform, setTextTracks, setCaptions, setMusic, setBrand, setSceneColorBrightness, replaceScenes } from "../shared/store.ts";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 
@@ -85,6 +90,83 @@ function registerSessionIpc(): void {
     const url = process.env.MOVIOLA_TTS_URL ?? null;
     return previewVoice(voice, sample, url, dest);
   });
+  ipcMain.handle("moviola:setTextTracks", async (_event, id: string, textTracks: TextTrack[]) => {
+    const current = await readSession(root, id);
+    const next = setTextTracks(current, textTracks, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+
+  const histories = new Map<string, ClipHistory>();
+
+  function historyFor(session: { id: string; scenes: Scene[] }): ClipHistory {
+    let history = histories.get(session.id);
+    if (!history) {
+      history = createHistory(session.scenes);
+      histories.set(session.id, history);
+    }
+    return history;
+  }
+
+  ipcMain.handle("moviola:setCaptions", async (_event, id: string, captions: CaptionsSettings) => {
+    const current = await readSession(root, id);
+    let nextCaptions = captions ?? defaultCaptions();
+    if (nextCaptions.enabled && !nextCaptions.srt) {
+      nextCaptions = { ...nextCaptions, srt: buildSrt(current.scenes, current.voice ?? defaultVoice()) };
+    }
+    if (!nextCaptions.enabled) {
+      nextCaptions = { ...nextCaptions, srt: null };
+    }
+    const next = setCaptions(current, nextCaptions, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:setMusic", async (_event, id: string, music: MusicSettings) => {
+    const current = await readSession(root, id);
+    const next = setMusic(current, music ?? defaultMusic(), new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:setBrand", async (_event, id: string, brand: string) => {
+    const current = await readSession(root, id);
+    const next = setBrand(current, brand ?? "", new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle(
+    "moviola:setSceneColorBrightness",
+    async (_event, id: string, sceneId: string, colorBrightness: number) => {
+      const current = await readSession(root, id);
+      const next = setSceneColorBrightness(current, sceneId, colorBrightness, new Date().toISOString());
+      histories.set(id, editClips(historyFor(current), next.scenes));
+      await saveSession(root, next);
+      return next;
+    },
+  );
+  ipcMain.handle("moviola:colorAdjustmentEnabled", () => colorAdjustmentEnabled);
+  ipcMain.handle("moviola:splitScene", async (_event, id: string, sceneId: string, atSeconds: number) => {
+    const current = await readSession(root, id);
+    const next = splitScene(current, sceneId, Number(atSeconds), new Date().toISOString());
+    histories.set(id, editClips(historyFor(current), next.scenes));
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:undo", async (_event, id: string) => {
+    const current = await readSession(root, id);
+    const history = undoHistory(historyFor(current));
+    histories.set(id, history);
+    const next = replaceScenes(current, history.present, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:redo", async (_event, id: string) => {
+    const current = await readSession(root, id);
+    const history = redoHistory(historyFor(current));
+    histories.set(id, history);
+    const next = replaceScenes(current, history.present, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
   ipcMain.handle(
     "moviola:setSceneTransform",
     async (
@@ -95,18 +177,117 @@ function registerSessionIpc(): void {
     ) => {
       const current = await readSession(root, id);
       const next = setSceneTransform(current, sceneId, transform, new Date().toISOString());
+      histories.set(id, editClips(historyFor(current), next.scenes));
       await saveSession(root, next);
       return next;
     },
   );
-  ipcMain.handle("moviola:setTextTracks", async (_event, id: string, textTracks: TextTrack[]) => {
+  ipcMain.handle("moviola:ingestLocalVideo", async (_event, id: string) => {
+    const picked = await dialog.showOpenDialog({
+      properties: ["openFile"],
+      filters: [{ name: "Video", extensions: ["mp4", "mov", "mkv", "webm"] }],
+    });
+    if (picked.canceled || !picked.filePaths[0]) return readSession(root, id);
     const current = await readSession(root, id);
-    const next = setTextTracks(current, textTracks, new Date().toISOString());
+    const dest = join(root, `${id}-ingest-${Date.now()}.mp4`);
+    const scene = await ingestLocalVideo(picked.filePaths[0], dest, current.scenes.length);
+    const next = replaceScenes(current, [...current.scenes, scene], new Date().toISOString());
+    histories.set(id, editClips(historyFor(current), next.scenes));
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle(
+    "moviola:trimClip",
+    async (_event, id: string, sceneId: string, startSeconds: number, durationSeconds: number) => {
+      const current = await readSession(root, id);
+      const scene = current.scenes.find((item) => item.id === sceneId);
+      if (!scene?.filePath) throw new Error("cena sem arquivo");
+      const dest = join(root, `${id}-trim-${Date.now()}.mp4`);
+      await trimClip(scene.filePath, dest, Number(startSeconds), Number(durationSeconds));
+      const scenes = current.scenes.map((item) =>
+        item.id === sceneId
+          ? { ...item, filePath: dest, durationSeconds: Number(durationSeconds), status: "pronta" as const }
+          : item,
+      );
+      const next = replaceScenes(current, scenes, new Date().toISOString());
+      histories.set(id, editClips(historyFor(current), next.scenes));
+      await saveSession(root, next);
+      return next;
+    },
+  );
+  ipcMain.handle("moviola:setTranslation", async (_event, id: string, sceneId: string, translation: string) => {
+    const current = await readSession(root, id);
+    const scenes = current.scenes.map((scene) =>
+      scene.id === sceneId ? setTranslation(scene, String(translation ?? "")) : scene,
+    );
+    const next = replaceScenes(current, scenes, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:dubNarration", async (_event, id: string, url: string | null) => {
+    const current = await readSession(root, id);
+    const dest = join(root, `${id}-dub.wav`);
+    const next = await dubNarration(current, url, dest, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:searchStock", async (_event, query: string) => {
+    const endpoint = process.env.MOVIOLA_STOCK_URL ?? null;
+    return searchStock(String(query ?? ""), endpoint);
+  });
+  ipcMain.handle("moviola:insertStockScene", async (_event, id: string, option: { id: string; title: string; url: string }) => {
+    const current = await readSession(root, id);
+    const dest = join(root, `${id}-stock-${Date.now()}.mp4`);
+    const next = await insertStockScene(current, option, dest, new Date().toISOString());
+    histories.set(id, editClips(historyFor(current), next.scenes));
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:generateAvatar", async (_event, id: string, sceneId: string, url: string | null) => {
+    const current = await readSession(root, id);
+    const scene = current.scenes.find((item) => item.id === sceneId);
+    if (!scene) throw new Error("cena ausente");
+    const dest = join(root, `${id}-avatar-${Date.now()}.mp4`);
+    const done = await generateAvatar(scene, url, dest);
+    const scenes = current.scenes.map((item) => (item.id === sceneId ? done : item));
+    const next = replaceScenes(current, scenes, new Date().toISOString());
+    histories.set(id, editClips(historyFor(current), next.scenes));
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:fillFromSlides", async (_event, id: string, slides: string[]) => {
+    const current = await readSession(root, id);
+    const next = fillFromSlides(current, slides ?? [], new Date().toISOString());
+    histories.set(id, editClips(historyFor(current), next.scenes));
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:removeBackground", async (_event, id: string, sceneId: string) => {
+    const current = await readSession(root, id);
+    const scene = current.scenes.find((item) => item.id === sceneId);
+    if (!scene?.filePath) throw new Error("cena sem arquivo");
+    const dest = join(root, `${id}-nobg-${Date.now()}.mp4`);
+    await removeBackground(scene.filePath, dest);
+    const scenes = current.scenes.map((item) =>
+      item.id === sceneId ? { ...item, filePath: dest, status: "pronta" as const } : item,
+    );
+    const next = replaceScenes(current, scenes, new Date().toISOString());
+    histories.set(id, editClips(historyFor(current), next.scenes));
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:auditScene", async (_event, id: string, sceneId: string, score: number | null) => {
+    const current = await readSession(root, id);
+    const scenes = current.scenes.map((scene) =>
+      scene.id === sceneId ? auditScene(scene, score == null ? null : Number(score)) : scene,
+    );
+    const next = replaceScenes(current, scenes, new Date().toISOString());
     await saveSession(root, next);
     return next;
   });
 
 }
+
 
 
 app.whenReady().then(async () => {
@@ -288,6 +469,177 @@ app.whenReady().then(async () => {
     app.exit(ok ? 0 : 1);
     return;
   }
+
+  if (check === "061") {
+    const opened = openSession(
+      { theme: "Legendas Trilha", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" },
+      "2026-10-06T00:00:00.000Z",
+    );
+    await saveSession(sessionsRoot(), opened.session);
+    await win.loadFile(join(here, "..", "app", "criacao", "index.html"), { query: { session: opened.session.id } });
+    await win.webContents.executeJavaScript("window.moviolaRoom");
+    const toggled = await win.webContents.executeJavaScript(`(async()=>{
+      const sub=document.getElementById('subToggle');
+      sub.click();
+      await window.moviolaCaptions();
+      const chip=[...document.querySelectorAll('#tracks .chip')].find(c=>c.dataset.v==='porto');
+      chip.click();
+      await window.moviolaMusic();
+      return {
+        sub: sub.getAttribute('aria-pressed'),
+        track: document.getElementById('trackToggle').getAttribute('aria-pressed'),
+      };
+    })()`);
+    const saved = await readSession(sessionsRoot(), opened.session.id);
+    console.log(`UI ${JSON.stringify(toggled)}`);
+    console.log(`CAPTIONS ${JSON.stringify(saved.captions)}`);
+    console.log(`MUSIC ${JSON.stringify(saved.music)}`);
+    const ok =
+      toggled.sub === "true" &&
+      saved.captions.enabled === true &&
+      typeof saved.captions.srt === "string" &&
+      saved.music.enabled === true &&
+      saved.music.filePath === "/trilha/porto-seco.mp3";
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+
+
+  if (check === "070") {
+    const opened = openSession(
+      { theme: "Cor", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" },
+      "2026-10-06T00:00:00.000Z",
+    );
+    const scene = opened.session.scenes[0];
+    if (!scene) throw new Error("sem cena");
+    opened.session.scenes = [{ ...scene, status: "pronta", filePath: "/tmp/x.mp4", title: "Clipe" }];
+    opened.session.status = "done";
+    opened.session.outputPath = "/tmp/x.mp4";
+    await saveSession(sessionsRoot(), opened.session);
+    await win.loadFile(join(here, "..", "app", "editor", "index.html"), { query: { session: opened.session.id } });
+    await win.webContents.executeJavaScript("window.moviolaEditor");
+    const enabled = await win.webContents.executeJavaScript("window.moviola.colorAdjustmentEnabled()");
+    const result = await win.webContents.executeJavaScript(`(async()=>{
+      const cell=document.querySelector('#trackCells .track-cell');
+      if(cell) cell.click();
+      const input=document.getElementById('inspBrightness');
+      const disabled=input ? input.disabled : true;
+      if(input){ input.value='0.15'; input.dispatchEvent(new Event('change',{bubbles:true})); }
+      await window.moviolaColor && window.moviolaColor();
+      return {enabled: await window.moviola.colorAdjustmentEnabled(), disabled, value: input && input.value, cells: document.querySelectorAll("#trackCells .track-cell").length, holdHidden: document.getElementById("holdPanel") && document.getElementById("holdPanel").hidden, fn: typeof window.moviola.setSceneColorBrightness, sel: document.querySelector("#trackCells .track-cell.active") ? true : false};
+    })()`);
+    const saved = await readSession(sessionsRoot(), opened.session.id);
+    console.log(`COLOR ${JSON.stringify(result)} brightness=${saved.scenes[0]?.colorBrightness}`);
+    const ok = enabled === true && result.disabled === false && saved.scenes[0]?.colorBrightness === 0.15;
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (check === "072") {
+    const opened = openSession(
+      { theme: "Lamina", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" },
+      "2026-10-06T00:00:00.000Z",
+    );
+    const scene = opened.session.scenes[0];
+    if (!scene) throw new Error("sem cena");
+    opened.session.scenes = [{ ...scene, id: "clip-a", status: "pronta", filePath: "/tmp/x.mp4", durationSeconds: 4, title: "Clipe" }];
+    opened.session.status = "done";
+    opened.session.outputPath = "/tmp/x.mp4";
+    await saveSession(sessionsRoot(), opened.session);
+    await win.loadFile(join(here, "..", "app", "editor", "index.html"), { query: { session: opened.session.id } });
+    await win.webContents.executeJavaScript("window.moviolaEditor");
+    const after = await win.webContents.executeJavaScript(`(async()=>{
+      const cell=document.querySelector('#trackCells .track-cell');
+      if(cell) cell.click();
+      document.getElementById('btnBlade').click();
+      await window.moviolaBlade();
+      return (await window.moviola.read(new URLSearchParams(location.search).get('session'))).scenes.length;
+    })()`);
+    const saved = await readSession(sessionsRoot(), opened.session.id);
+    console.log(`SCENES ${after} saved=${saved.scenes.length}`);
+    app.exit(saved.scenes.length === 2 ? 0 : 1);
+    return;
+  }
+  if (check === "077") {
+    const opened = openSession(
+      { theme: "Undo", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" },
+      "2026-10-06T00:00:00.000Z",
+    );
+    const scene = opened.session.scenes[0];
+    if (!scene) throw new Error("sem cena");
+    opened.session.scenes = [{ ...scene, status: "pronta", filePath: "/tmp/x.mp4", title: "Clipe", scale: 1 }];
+    opened.session.status = "done";
+    opened.session.outputPath = "/tmp/x.mp4";
+    await saveSession(sessionsRoot(), opened.session);
+    await win.loadFile(join(here, "..", "app", "editor", "index.html"), { query: { session: opened.session.id } });
+    await win.webContents.executeJavaScript("window.moviolaEditor");
+    const scales = await win.webContents.executeJavaScript(`(async()=>{
+      const cell=document.querySelector('#trackCells .track-cell');
+      if(cell) cell.click();
+      const scale=document.getElementById('inspScale');
+      scale.value='1.5'; scale.dispatchEvent(new Event('change',{bubbles:true}));
+      await window.moviolaTransform();
+      document.getElementById('btnUndo').click();
+      await window.moviolaUndo();
+      const afterUndo=(await window.moviola.read(new URLSearchParams(location.search).get('session'))).scenes[0].scale;
+      document.getElementById('btnRedo').click();
+      await window.moviolaRedo();
+      const afterRedo=(await window.moviola.read(new URLSearchParams(location.search).get('session'))).scenes[0].scale;
+      return {afterUndo, afterRedo};
+    })()`);
+    console.log(`UNDO ${JSON.stringify(scales)}`);
+    const ok = scales.afterUndo === 1 && scales.afterRedo === 1.5;
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (check === "082") {
+    const opened = openSession(
+      { theme: "Marca", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" },
+      "2026-10-06T00:00:00.000Z",
+    );
+    const scene = opened.session.scenes[0];
+    if (!scene) throw new Error("sem cena");
+    opened.session.scenes = [{ ...scene, status: "pronta", filePath: "/tmp/x.mp4", title: "Clipe" }];
+    opened.session.status = "done";
+    opened.session.outputPath = "/tmp/x.mp4";
+    await saveSession(sessionsRoot(), opened.session);
+    await win.loadFile(join(here, "..", "app", "editor", "index.html"), { query: { session: opened.session.id } });
+    await win.webContents.executeJavaScript("window.moviolaEditor");
+    const brand = await win.webContents.executeJavaScript(`(async()=>{
+      const cell=document.querySelector('#trackCells .track-cell');
+      if(cell) cell.click();
+      const input=document.getElementById('inspBrand');
+      return {value: input ? input.value : null, exists: !!input};
+    })()`);
+    const saved = await readSession(sessionsRoot(), opened.session.id);
+    console.log(`BRAND ${JSON.stringify(brand)} session=${JSON.stringify(saved.brand)}`);
+    const ok = brand.exists && brand.value === "" && saved.brand === "";
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (check === "092") {
+    const opened = openSession(
+      { theme: "Ferramentas", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" },
+      "2026-10-06T00:00:00.000Z",
+    );
+    opened.session.status = "done";
+    opened.session.outputPath = "/tmp/x.mp4";
+    const scene = opened.session.scenes[0];
+    if (scene) opened.session.scenes = [{ ...scene, status: "pronta", filePath: "/tmp/x.mp4" }];
+    await saveSession(sessionsRoot(), opened.session);
+    await win.loadFile(join(here, "..", "app", "editor", "index.html"), { query: { session: opened.session.id } });
+    await win.webContents.executeJavaScript("window.moviolaEditor");
+    const menu = await win.webContents.executeJavaScript(`(()=>{
+      const items=[...document.querySelectorAll('#toolsMenu [data-tool]')].map(el=>el.dataset.tool);
+      const pages=[...document.querySelectorAll('.step')].length;
+      return {items, pages, menu: !!document.getElementById('toolsMenu')};
+    })()`);
+    console.log(`TOOLS ${JSON.stringify(menu)}`);
+    const needed = ["ingestLocalVideo","trimClip","setTranslation","dubNarration","searchStock","insertStockScene","generateAvatar","fillFromSlides","removeBackground","auditScene"];
+    const ok = menu.menu && menu.pages === 3 && needed.every((name) => menu.items.includes(name));
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+
   if (!probe) return;
   const url = win.webContents.getURL();
   console.log(`MOVIOLA_OPEN ${url}`);
