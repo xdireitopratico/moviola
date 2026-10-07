@@ -88,13 +88,13 @@ Não faça a Criação, o Editor, recentes ligados em dados, nem o botão que gr
 046. **Eu** — `feito` — depende 045 — Teste do worker com arquivo real, sem resposta forjada.
 047. **Eu** — `feito` — depende 040, 046 — O app chama o worker e espera `done` ou `failed`.
 048. **Eu** — `feito` — depende 042 — `dry_run` devolve o pedido e não chama o ffmpeg.
-049. **Lumen** — `aberto` — depende 047 — O monitor do Editor toca o mp4 da sessão.
-050. **Lumen** — `aberto` — depende 016, 049 — A faixa V1 mostra os clipes na ordem salva.
-051. **Lumen** — `aberto` — depende 049 — Exportar copia o mp4 para o caminho escolhido.
+049. **Lumen** — `feito` — depende 047 — O monitor do Editor toca o mp4 da sessão.
+050. **Lumen** — `feito` — depende 016, 049 — A faixa V1 mostra os clipes na ordem salva.
+051. **Lumen** — `feito` — depende 049 — Exportar copia o mp4 para o caminho escolhido.
 052. **Lumen** — `feito` — depende 010, 037 — Se o render não começou, a sala mostra a cena e o motivo.
-053. **Eu** — `aberto` — depende 026, 047, 051 — Um script na VPS percorre tema, sessão, cenas, clipes, mp4 e exportação, e termina verde.
+053. **Eu** — `feito` — depende 026, 047, 051 — Um script na VPS percorre tema, sessão, cenas, clipes, mp4 e exportação, e termina verde.
 054. **Eu** — `feito` — depende 006 — Contrato de voz: id, velocidade e pausa entre cenas.
-055. **Eu** — `aberto` — depende 054 — A pré-escuta baixa um áudio ou falha com motivo.
+055. **Eu** — `feito` — depende 054 — A pré-escuta baixa um áudio ou falha com motivo.
 056. **Eu** — `aberto` — depende 012, 055 — A narração entra no pedido de pós-produção.
 057. **Lumen** — `aberto` — depende 033, 054 — A aba Narração grava voz, velocidade e pausa, e dispara a prévia.
 058. **Eu** — `aberto` — depende 056 — Gerar o SRT a partir da narração.
@@ -102,17 +102,17 @@ Não faça a Criação, o Editor, recentes ligados em dados, nem o botão que gr
 060. **Eu** — `feito` — depende 012 — Com música ligada, o pedido leva arquivo, volume e fades.
 061. **Lumen** — `aberto` — depende 059, 060 — As abas Legendas e Trilha passam a gravar.
 062. **Eu** — `feito` — depende 044 — Probe do ffmpeg local: achou ou não, com caminho e versão.
-063. **Eu** — `aberto` — depende 012, 062 — Com ffmpeg local, o mesmo pedido roda na máquina do app.
-064. **Eu** — `aberto` — depende 047, 063 — Sem ffmpeg local, o mesmo pedido vai para a VPS. São dois testes.
-065. **Eu** — `aberto` — depende 041 — Regenerar pelo inspetor usa a mesma fila.
-066. **Eu** — `aberto` — depende 006 — Escala, posição e opacidade do clipe entram no contrato e sobrevivem a reabrir a sessão.
+063. **Eu** — `feito` — depende 012, 062 — Com ffmpeg local, o mesmo pedido roda na máquina do app.
+064. **Eu** — `feito` — depende 047, 063 — Sem ffmpeg local, o mesmo pedido vai para a VPS. São dois testes.
+065. **Eu** — `feito` — depende 041 — Regenerar pelo inspetor usa a mesma fila.
+066. **Eu** — `feito` — depende 006 — Escala, posição e opacidade do clipe entram no contrato e sobrevivem a reabrir a sessão.
 067. **Lumen** — `aberto` — depende 066 — O inspetor Clipe edita escala, posição e opacidade.
 068. **Eu** — `aberto` — depende 044, 066 — Ken Burns entra no pedido e o worker aplica.
 069. **Eu** — `aberto` — depende 044 — Cor: o worker aplica um ajuste, ou a aba fica desabilitada. O teste prova qual dos dois vale, e que a aba desabilitada não grava.
 070. **Lumen** — `aberto` — depende 069 — A aba Cor segue a decisão do 069.
 071. **Eu** — `aberto` — depende 044 — A lâmina divide o clipe e o worker renderiza os dois trechos.
 072. **Lumen** — `aberto` — depende 071 — A ferramenta lâmina chama essa operação.
-073. **Eu** — `aberto` — depende 012 — A faixa de texto entra no pedido.
+073. **Eu** — `feito` — depende 012 — A faixa de texto entra no pedido.
 074. **Lumen** — `aberto` — depende 073 — A faixa V2 edita esse texto.
 075. **Eu** — `aberto` — depende 044 — Faixa travada não entra no render seguinte.
 076. **Eu** — `aberto` — depende 066 — Desfazer e refazer uma edição de clipe.
