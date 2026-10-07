@@ -197,6 +197,7 @@ app.whenReady().then(async () => {
       durationSeconds: 4,
       status,
       filePath: null,
+      reason: null,
     }));
     await saveSession(sessionsRoot(), opened.session);
     await win.loadFile(join(here, "..", "app", "criacao", "index.html"), { query: { session: opened.session.id } });

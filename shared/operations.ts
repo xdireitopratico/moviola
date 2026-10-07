@@ -48,6 +48,7 @@ function draft(beat: Beat, index: number, durationSeconds: number, id: string): 
     durationSeconds,
     status: "vazia",
     filePath: null,
+    reason: null,
   };
 }
 

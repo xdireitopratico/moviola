@@ -11,6 +11,7 @@ export interface Scene {
   durationSeconds: number;
   status: SceneStatus;
   filePath: string | null;
+  reason: string | null;
 }
 
 export interface Launch {
@@ -81,6 +82,7 @@ export function createSession(launch: Launch, now = new Date().toISOString()): S
         durationSeconds: launch.durationSeconds,
         status: "vazia",
         filePath: null,
+        reason: null,
       },
     ],
     createdAt: now,
