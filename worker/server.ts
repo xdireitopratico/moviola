@@ -3,13 +3,14 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildPostProdRequest, type Session } from "../shared/contract.ts";
-import { concatClips } from "./concat.ts";
+import { concatClips, renderClipEffects } from "./concat.ts";
+import type { ClipRequest } from "../shared/contract.ts";
 
 export async function decide(
   method: string,
   path: string,
   raw: string,
-): Promise<{ status: number; body: Record<string, unknown>; clips?: string[] }> {
+): Promise<{ status: number; body: Record<string, unknown>; clips?: string[]; effects?: ClipRequest[] }> {
   if (method !== "POST" || path !== "/api/v1/post-production") {
     return { status: 404, body: { error: "não encontrado" } };
   }
@@ -32,7 +33,12 @@ export async function decide(
   if (payload.dry_run) {
     return { status: 200, body: { ok: true, request: built.request } };
   }
-  return { status: 200, body: { accepted: true }, clips: built.request.clips };
+  return {
+    status: 200,
+    body: { accepted: true },
+    clips: built.request.clips,
+    effects: built.request.clipEffects,
+  };
 }
 
 export async function renderClips(clips: string[]): Promise<Buffer> {
@@ -55,6 +61,15 @@ export function startPostProd(port: number, hostname = "127.0.0.1"): Promise<Ser
   const server = createServer((req, res) => {
     void readBody(req).then(async (raw) => {
       const result = await decide(req.method ?? "GET", new URL(req.url ?? "/", "http://127.0.0.1").pathname, raw);
+      if (result.effects && result.effects.some((fx) => fx.kenBurns.enabled || fx.colorBrightness !== 0)) {
+        const dir = await mkdtemp(join(tmpdir(), "moviola-out-"));
+        const dest = join(dir, "out.mp4");
+        await renderClipEffects(result.effects, dest);
+        const mp4 = await readFile(dest);
+        res.writeHead(200, { "content-type": "video/mp4", "content-length": String(mp4.length) });
+        res.end(mp4);
+        return;
+      }
       if (result.clips) {
         const mp4 = await renderClips(result.clips);
         res.writeHead(200, { "content-type": "video/mp4", "content-length": String(mp4.length) });

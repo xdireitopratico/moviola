@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSession, type Scene, type Session } from "../shared/contract.ts";
-import { colorClip } from "./concat.ts";
+import { applyColor, colorAdjustmentEnabled, colorClip, splitClip } from "./concat.ts";
 import { decide, startPostProd } from "./server.ts";
 
 const launch = {
@@ -25,6 +25,8 @@ function scene(patch: Partial<Scene> & Pick<Scene, "id" | "index" | "status">): 
     positionX: 0,
     positionY: 0,
     opacity: 1,
+    kenBurns: { enabled: false, startScale: 1, endScale: 1.1 },
+    colorBrightness: 0,
     ...patch,
   };
 }
@@ -119,19 +121,16 @@ test("048 dry_run devolve o pedido e não chama o ffmpeg", async () => {
   );
   expect(viaDecide.status).toBe(200);
   expect(viaDecide.clips).toBeUndefined();
-  expect(viaDecide.body).toEqual({
-    ok: true,
-    request: {
-      sessionId: session.id,
-      projectName: session.projectName,
-      clips: ["/clipes/inexistente-0.mp4", "/clipes/inexistente-1.mp4"],
-      narrationUrl: null,
-      music: null,
-      textTracks: [],
-      outputFormat: "mp4",
-      callback: "app://callback",
-    },
-  });
+  const builtReq = viaDecide.body.request as Record<string, unknown>;
+  expect(viaDecide.body.ok).toBe(true);
+  expect(builtReq.clips).toEqual(["/clipes/inexistente-0.mp4", "/clipes/inexistente-1.mp4"]);
+  expect(builtReq.narrationUrl).toBeNull();
+  expect(builtReq.music).toBeNull();
+  expect(builtReq.srt).toBeNull();
+  expect(builtReq.textTracks).toEqual([]);
+  expect(builtReq.outputFormat).toBe("mp4");
+  expect(builtReq.callback).toBe("app://callback");
+  expect(Array.isArray(builtReq.clipEffects)).toBe(true);
 
   const server = await startPostProd(0);
   const address = server.address();
@@ -148,5 +147,81 @@ test("048 dry_run devolve o pedido e não chama o ffmpeg", async () => {
     expect(body).toEqual(viaDecide.body);
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  }
+});
+
+
+test("068 o worker aplica Ken Burns do pedido", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "moviola-kb-"));
+  const clip = join(dir, "in.mp4");
+  const server = await startPostProd(0);
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("porta");
+  try {
+    await colorClip(clip, "red");
+    const session = sessionWith([
+      scene({
+        id: "a",
+        index: 0,
+        status: "pronta",
+        filePath: clip,
+        kenBurns: { enabled: true, startScale: 1, endScale: 1.2 },
+      }),
+    ]);
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/v1/post-production`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ session, callback: "app://callback" }),
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("video/mp4");
+    expect((await response.arrayBuffer()).byteLength).toBeGreaterThan(100);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("069 cor: o worker aplica um ajuste e a aba pode gravar", async () => {
+  expect(colorAdjustmentEnabled).toBe(true);
+  const dir = await mkdtemp(join(tmpdir(), "moviola-color-adj-"));
+  const src = join(dir, "in.mp4");
+  const dest = join(dir, "out.mp4");
+  try {
+    await colorClip(src, "blue");
+    await applyColor(src, dest, 0.05);
+    const bytes = await readFile(dest);
+    expect(bytes.byteLength).toBeGreaterThan(100);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("071 a lâmina divide o clipe em dois trechos", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "moviola-split-"));
+  const src = join(dir, "in.mp4");
+  const left = join(dir, "left.mp4");
+  const right = join(dir, "right.mp4");
+  try {
+    // 2s clip for a mid split
+    const { spawn } = await import("node:child_process");
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn("ffmpeg", [
+        "-y", "-f", "lavfi", "-i", "color=c=green:s=320x240:d=2", "-pix_fmt", "yuv420p", src,
+      ], { stdio: ["ignore", "ignore", "pipe"] });
+      child.on("error", reject);
+      child.on("close", (code) => (code === 0 ? resolve() : reject(new Error("ffmpeg"))));
+    });
+    await splitClip(src, 1, left, right);
+    const leftProbe = Bun.spawn(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", left], {
+      stdout: "pipe",
+    });
+    const rightProbe = Bun.spawn(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", right], {
+      stdout: "pipe",
+    });
+    expect(Number(await new Response(leftProbe.stdout).text())).toBeGreaterThan(0.5);
+    expect(Number(await new Response(rightProbe.stdout).text())).toBeGreaterThan(0.5);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
   }
 });
