@@ -104,7 +104,30 @@
   const ready = sessionId && window.moviola
     ? window.moviola.read(sessionId).then((session) => writeForm(session.launch))
     : Promise.resolve();
-  window.moviolaForm = { readLaunch, writeForm, ready, saved: () => saveTail };
+
+  async function renderRecents() {
+    const empty = $("#recentEmpty");
+    const list = $("#recentList");
+    if (!empty || !list || !window.moviola) return;
+    const sessions = await window.moviola.list();
+    list.replaceChildren();
+    empty.hidden = sessions.length > 0;
+    for (const session of sessions) {
+      const item = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.session = session.id;
+      button.textContent = session.projectName;
+      button.addEventListener("click", () => {
+        location.search = `?session=${encodeURIComponent(session.id)}`;
+      });
+      item.append(button);
+      list.append(item);
+    }
+  }
+
+  const recents = window.moviola ? renderRecents() : Promise.resolve();
+  window.moviolaForm = { readLaunch, writeForm, ready, recents, saved: () => saveTail };
 
   const g = document.createElement("canvas");
   g.width = 220; g.height = 220;

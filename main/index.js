@@ -23,6 +23,18 @@ async function readSession(root, id) {
   const raw = await readFile(fileOf(root, id), "utf8");
   return JSON.parse(raw);
 }
+async function listSessions(root) {
+  await mkdir(root, { recursive: true });
+  const names = await readdir(root);
+  const sessions = [];
+  for (const name of names) {
+    if (!name.endsWith(".json"))
+      continue;
+    const raw = await readFile(join(root, name), "utf8");
+    sessions.push(JSON.parse(raw));
+  }
+  return sessions.sort((a, b) => a.updatedAt < b.updatedAt ? 1 : -1);
+}
 function withLaunch(session, launch, now) {
   const theme = launch.theme.trim();
   return {
@@ -63,6 +75,7 @@ function sessionsRoot() {
 }
 function registerSessionIpc() {
   const root = sessionsRoot();
+  ipcMain.handle("moviola:list", () => listSessions(root));
   ipcMain.handle("moviola:read", (_event, id) => readSession(root, id));
   ipcMain.handle("moviola:writeLaunch", (_event, id, launch) => writeLaunch(root, id, launch, new Date().toISOString()));
 }
@@ -94,6 +107,16 @@ app.whenReady().then(async () => {
     const saved = launchFrom(await readSession(sessionsRoot(), session));
     console.log(`SAVED ${JSON.stringify(saved)}`);
     const ok = wrote === "wrote" && before.theme === "Tema salvo" && before.dur === "30" && before.format === "9:16" && before.style === "Animação" && before.keys === "aspectRatio,durationSeconds,style,theme" && saved.theme === "Tema editado" && saved.durationSeconds === 30 && saved.aspectRatio === "9:16" && saved.style === "Animação";
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (check === "025") {
+    await win.webContents.executeJavaScript("window.moviolaForm.recents");
+    const recents = await win.webContents.executeJavaScript("({names:[...document.querySelectorAll('#recentList button')].map((button)=>button.textContent),empty:document.getElementById('recentEmpty').hidden})");
+    const stored = (await listSessions(sessionsRoot())).map((item) => item.projectName);
+    console.log(`RECENTS ${JSON.stringify(recents)}`);
+    console.log(`STORED ${JSON.stringify(stored)}`);
+    const ok = JSON.stringify(recents.names) === JSON.stringify(stored) && recents.empty === stored.length > 0;
     app.exit(ok ? 0 : 1);
     return;
   }

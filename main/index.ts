@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Launch } from "../shared/contract.ts";
 import { launchFrom, writeLaunch } from "../shared/launch.ts";
-import { readSession } from "../shared/store.ts";
+import { listSessions, readSession } from "../shared/store.ts";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 
@@ -14,6 +14,7 @@ function sessionsRoot(): string {
 
 function registerSessionIpc(): void {
   const root = sessionsRoot();
+  ipcMain.handle("moviola:list", () => listSessions(root));
   ipcMain.handle("moviola:read", (_event, id: string) => readSession(root, id));
   ipcMain.handle("moviola:writeLaunch", (_event, id: string, launch: Launch) =>
     writeLaunch(root, id, launch, new Date().toISOString()),
@@ -54,6 +55,19 @@ app.whenReady().then(async () => {
     const saved = launchFrom(await readSession(sessionsRoot(), session));
     console.log(`SAVED ${JSON.stringify(saved)}`);
     const ok = wrote === "wrote" && before.theme === "Tema salvo" && before.dur === "30" && before.format === "9:16" && before.style === "Animação" && before.keys === "aspectRatio,durationSeconds,style,theme" && saved.theme === "Tema editado" && saved.durationSeconds === 30 && saved.aspectRatio === "9:16" && saved.style === "Animação";
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (check === "025") {
+    await win.webContents.executeJavaScript("window.moviolaForm.recents");
+    const recents = await win.webContents.executeJavaScript("({names:[...document.querySelectorAll('#recentList button')].map((button)=>button.textContent),empty:document.getElementById('recentEmpty').hidden})") as {
+      names: string[];
+      empty: boolean;
+    };
+    const stored = (await listSessions(sessionsRoot())).map((item) => item.projectName);
+    console.log(`RECENTS ${JSON.stringify(recents)}`);
+    console.log(`STORED ${JSON.stringify(stored)}`);
+    const ok = JSON.stringify(recents.names) === JSON.stringify(stored) && recents.empty === (stored.length > 0);
     app.exit(ok ? 0 : 1);
     return;
   }

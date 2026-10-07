@@ -125,3 +125,10 @@ button{background:none;border:0;cursor:pointer}
 .est b{font-weight:400;color:var(--fg-2)}
 .e-actions .right{display:flex;gap:8px;align-items:center}
 .note{margin-top:28px;font-family:var(--mono);font-size:12px;color:var(--fg-4);border-top:1px solid var(--line);padding-top:16px}
+
+.recents{margin-top:28px}
+.recents h2{margin-bottom:12px}
+.recent-empty{font-size:13px;color:var(--fg-3)}
+.recent-list{list-style:none;display:flex;flex-direction:column;gap:8px}
+.recent-list button{width:100%;text-align:left;font-size:14px;padding:10px 12px;border:1px solid var(--line-2);border-radius:6px;background:var(--bg-2)}
+.recent-list button:hover{border-color:var(--line-3)}
