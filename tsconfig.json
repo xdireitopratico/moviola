@@ -10,6 +10,6 @@
     "allowImportingTsExtensions": true,
     "types": ["node"]
   },
-  "include": ["shared/**/*.ts"],
-  "exclude": ["shared/**/*.test.ts"]
+  "include": ["shared/**/*.ts", "main/**/*.ts"],
+  "exclude": ["**/*.test.ts"]
 }
