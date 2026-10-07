@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moviola — Entrada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./entrada.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-reel" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8.25"/><circle cx="10" cy="5.6" r="1.6"/><circle cx="14.2" cy="8.6" r="1.6"/><circle cx="12.6" cy="13.6" r="1.6"/><circle cx="7.4" cy="13.6" r="1.6"/><circle cx="5.8" cy="8.6" r="1.6"/><circle cx="10" cy="10" r=".6"/></symbol>
+  <symbol id="i-share" viewBox="0 0 16 16"><path d="M8 2.5v8M5 5.5l3-3 3 3M3.5 9v4h9V9"/></symbol>
+  <symbol id="i-ast" viewBox="0 0 16 16"><path d="M8 2.5v11M3.2 5.2l9.6 5.6M3.2 10.8l9.6-5.6"/></symbol>
+</svg>
+<div class="grain" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <svg class="i mark" viewBox="0 0 20 20"><use href="#i-reel"/></svg>
+      <span class="word">Moviola</span>
+      <span class="div"></span>
+      <span class="proj" id="projName">Novo projeto</span>
+      <span class="ver">· corte 01</span>
+    </div>
+    <nav class="steps" aria-label="Etapas">
+      <span class="step active"><span class="n">01</span>Entrada</span>
+      <span class="step-sep"></span>
+      <span class="step" aria-disabled="true" title="Item 032 em diante"><span class="n">02</span>Criação</span>
+      <span class="step-sep"></span>
+      <span class="step" aria-disabled="true" title="Item 049 em diante"><span class="n">03</span>Editor</span>
+    </nav>
+    <div class="top-right">
+      <span class="saved">Rascunho · local</span>
+      <button type="button" class="btn ghost" tabindex="-1" aria-disabled="true"><svg class="i"><use href="#i-share"/></svg>Compartilhar</button>
+      <span class="avatar" title="Renato Darienzo">RD</span>
+    </div>
+  </header>
+
+  <main class="stage">
+    <div class="entrada">
+      <div class="e-head">
+        <div>
+          <div class="eyebrow label"><span>Novo projeto</span><span class="sep"></span><span>Rolo —</span></div>
+          <h1 class="display">Qual história você<br>quer contar<span>?</span></h1>
+        </div>
+        <div class="e-meta">
+          <span>Projetos</span><b>—</b>
+          <span>Minutos este mês</span><b>—</b>
+          <span>Idioma</span><b>PT-BR</b>
+        </div>
+      </div>
+
+      <div class="clapper" id="clapper">
+        <div class="clap-top" aria-hidden="true"><span class="hinge"></span><div class="stick"></div><div class="band"></div></div>
+        <div class="clap-body">
+          <div class="slate-row">
+            <div class="slate-cell"><div class="label">Produção</div><div class="slate-v" id="slateProd">NOVO PROJETO</div></div>
+            <div class="slate-cell"><div class="label">Cena</div><div class="slate-v">01</div></div>
+            <div class="slate-cell"><div class="label">Take</div><div class="slate-v">01</div></div>
+            <div class="slate-cell"><div class="label">Data</div><div class="slate-v dim" id="slateDate">06.10.26</div></div>
+          </div>
+          <label class="theme" for="themeInput">
+            <span class="label">Tema do vídeo</span>
+            <textarea id="themeInput" maxlength="500" spellcheck="false" placeholder="Ex.: Como o samba nasceu nos quintais do Rio de Janeiro" rows="2"></textarea>
+          </label>
+          <div class="slate-foot">
+            <span>Direção <b>Renato Darienzo</b></span>
+            <span>Narração <b>IA · Helena</b></span>
+            <span class="count"><b id="count">0</b> / 500</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="spec">
+        <div class="spec-row">
+          <div class="spec-cell">
+            <span class="label spec-k">Duração</span>
+            <div class="seg" role="group" aria-label="Duração" data-group="dur">
+              <button type="button" aria-pressed="false" data-v="15">15s</button>
+              <button type="button" aria-pressed="false" data-v="30">30s</button>
+              <button type="button" aria-pressed="true" data-v="60">60s</button>
+              <button type="button" aria-pressed="false" data-v="180">3min</button>
+            </div>
+          </div>
+          <div class="spec-cell">
+            <span class="label spec-k">Formato</span>
+            <div class="seg" role="group" aria-label="Formato" data-group="format">
+              <button type="button" aria-pressed="true" data-v="16:9"><i class="ar w" aria-hidden="true"></i>16:9</button>
+              <button type="button" aria-pressed="false" data-v="9:16"><i class="ar t" aria-hidden="true"></i>9:16</button>
+              <button type="button" aria-pressed="false" data-v="1:1"><i class="ar s" aria-hidden="true"></i>1:1</button>
+            </div>
+          </div>
+        </div>
+        <div class="spec-row">
+          <div class="spec-cell full">
+            <span class="label spec-k">Estilo</span>
+            <div class="chips" id="chips">
+              <button type="button" class="chip" aria-pressed="true" data-v="Documental"><i class="box" aria-hidden="true"></i>Documental</button>
+              <button type="button" class="chip" aria-pressed="false" data-v="Cinematográfico"><i class="box" aria-hidden="true"></i>Cinematográfico</button>
+              <button type="button" class="chip" aria-pressed="false" data-v="Animação"><i class="box" aria-hidden="true"></i>Animação</button>
+              <button type="button" class="chip" aria-pressed="false" data-v="Editorial"><i class="box" aria-hidden="true"></i>Editorial</button>
+            </div>
+            <span class="hint">Combine até 2</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="e-actions">
+        <div class="est">
+          <span>Cenas ~ <b id="estScenes">8</b></span>
+          <span>Roteiro em ~ <b>40 s</b></span>
+          <span>Custo <b id="estCost">60s de crédito</b></span>
+        </div>
+        <div class="right">
+          <button type="button" class="btn" id="suggestBtn" title="Sugestão local, sem rede"><svg class="i"><use href="#i-ast"/></svg>Sugerir tema</button>
+          <button type="button" class="btn primary lg" id="createBtn" aria-disabled="true" title="Item 026: gravar sessão ainda não ligado">Criar vídeo <span class="kbd">Ctrl ↵</span></button>
+        </div>
+      </div>
+
+      <p class="note" id="emptyState">Nenhum projeto aberto. O tema começa em branco.</p>
+    </div>
+  </main>
+</div>
+<script src="./entrada.js"></script>
+<script>
+  document.getElementById('slateDate').textContent = new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'}).replace(/\//g,'.');
+  document.getElementById('suggestBtn').addEventListener('click', () => {
+    const suggestions = [
+      'A história do café no Brasil — das primeiras mudas no Pará, em 1727, às cafeterias de hoje.',
+      'Como o samba nasceu nos quintais do Rio de Janeiro e virou identidade nacional.',
+      'O cerrado em silêncio: o que a noite revela quando a cidade dorme.'
+    ];
+    const t = document.getElementById('themeInput');
+    const next = suggestions[(suggestions.indexOf(t.value) + 1) % suggestions.length];
+    t.value = next;
+    t.dispatchEvent(new Event('input'));
+    t.focus();
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+import { app, BrowserWindow, ipcMain } from "electron";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import type { Launch } from "../shared/contract.ts";
+import { launchFrom, writeLaunch } from "../shared/launch.ts";
+import { readSession } from "../shared/store.ts";
+
+const here = fileURLToPath(new URL(".", import.meta.url));
+
+function sessionsRoot(): string {
+  if (process.env.MOVIOLA_SESSIONS) return process.env.MOVIOLA_SESSIONS;
+  return join(app.getPath("userData"), "sessions");
+}
+
+function registerSessionIpc(): void {
+  const root = sessionsRoot();
+  ipcMain.handle("moviola:read", (_event, id: string) => readSession(root, id));
+  ipcMain.handle("moviola:writeLaunch", (_event, id: string, launch: Launch) =>
+    writeLaunch(root, id, launch, new Date().toISOString()),
+  );
+}
+
+app.whenReady().then(async () => {
+  registerSessionIpc();
+  const probe = process.env.MOVIOLA_PROBE === "1";
+  const check = process.env.MOVIOLA_CHECK ?? "";
+  const win = new BrowserWindow({
+    width: 1440,
+    height: 900,
+    show: !probe && check === "",
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: join(here, "preload.cjs"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
+  const entrada = join(here, "..", "app", "entrada", "index.html");
+  const session = process.env.MOVIOLA_SESSION ?? "";
+  await win.loadFile(entrada, session ? { query: { session } } : undefined);
+  if (check === "024") {
+    await win.webContents.executeJavaScript("window.moviolaForm.ready");
+    const before = await win.webContents.executeJavaScript("({theme:document.getElementById('themeInput').value,dur:[...document.querySelectorAll('.seg[data-group=dur] button')].find(b=>b.getAttribute('aria-pressed')==='true')?.dataset.v,format:[...document.querySelectorAll('.seg[data-group=format] button')].find(b=>b.getAttribute('aria-pressed')==='true')?.dataset.v,style:[...document.querySelectorAll('.chip')].filter(b=>b.getAttribute('aria-pressed')==='true').map(b=>b.dataset.v).join(' + '),keys:Object.keys(window.moviolaForm.readLaunch()).sort().join(',')})") as {
+      theme: string;
+      dur: string;
+      format: string;
+      style: string;
+      keys: string;
+    };
+    console.log(`BEFORE ${JSON.stringify(before)}`);
+    const wrote = await win.webContents.executeJavaScript("(async()=>{try{const input=document.getElementById('themeInput');input.value='Tema editado';input.dispatchEvent(new Event('input',{bubbles:true}));await window.moviolaForm.saved();return 'wrote';}catch(error){return 'ERR '+String(error);}})()");
+    console.log(`WROTE ${wrote}`);
+    const saved = launchFrom(await readSession(sessionsRoot(), session));
+    console.log(`SAVED ${JSON.stringify(saved)}`);
+    const ok = wrote === "wrote" && before.theme === "Tema salvo" && before.dur === "30" && before.format === "9:16" && before.style === "Animação" && before.keys === "aspectRatio,durationSeconds,style,theme" && saved.theme === "Tema editado" && saved.durationSeconds === 30 && saved.aspectRatio === "9:16" && saved.style === "Animação";
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (!probe) return;
+  const url = win.webContents.getURL();
+  console.log(`MOVIOLA_OPEN ${url}`);
+  app.exit(url.includes("entrada/index.html") ? 0 : 1);
+});
