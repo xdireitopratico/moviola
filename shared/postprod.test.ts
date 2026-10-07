@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSession, type Scene, type Session } from "./contract.ts";
-import { callWorker } from "./postprod.ts";
+import { callWorker, renderLocal, renderSession } from "./postprod.ts";
 import { saveSession, readSession } from "./store.ts";
 import { colorClip } from "../worker/concat.ts";
 import { startPostProd } from "../worker/server.ts";
@@ -24,6 +24,10 @@ function scene(patch: Partial<Scene> & Pick<Scene, "id" | "index" | "status">): 
     durationSeconds: 8,
     filePath: null,
     reason: null,
+    scale: 1,
+    positionX: 0,
+    positionY: 0,
+    opacity: 1,
     ...patch,
   };
 }
@@ -132,6 +136,86 @@ test("047 portão incompleto marca failed sem chamar o worker", async () => {
     expect(rendered.status).toBe("failed");
     expect(rendered.reason).toBe("incompleta");
   } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("063 com ffmpeg local o mesmo pedido roda na máquina", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "moviola-063-"));
+  const red = join(dir, "red.mp4");
+  const blue = join(dir, "blue.mp4");
+  const out = join(dir, "final.mp4");
+  try {
+    await colorClip(red, "red");
+    await colorClip(blue, "blue");
+    const session = sessionWith([
+      scene({ id: "a", index: 0, status: "pronta", filePath: red }),
+      scene({ id: "b", index: 1, status: "pronta", filePath: blue }),
+    ]);
+    const rendered = await renderLocal(session, out, "2026-10-06T06:00:00.000Z");
+    expect(rendered.status).toBe("done");
+    expect(rendered.outputPath).toBe(out);
+    const probe = Bun.spawn(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", out], {
+      stdout: "pipe",
+    });
+    expect(Number(await new Response(probe.stdout).text())).toBeGreaterThan(1.5);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("064 com ffmpeg local renderSession não chama a VPS", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "moviola-064l-"));
+  const red = join(dir, "red.mp4");
+  const blue = join(dir, "blue.mp4");
+  const out = join(dir, "final.mp4");
+  let fetched = false;
+  try {
+    await colorClip(red, "red");
+    await colorClip(blue, "blue");
+    const session = sessionWith([
+      scene({ id: "a", index: 0, status: "pronta", filePath: red }),
+      scene({ id: "b", index: 1, status: "pronta", filePath: blue }),
+    ]);
+    const rendered = await renderSession(session, out, "2026-10-06T06:01:00.000Z", {
+      probe: async () => ({ found: true, path: "/usr/bin/ffmpeg", version: "6" }),
+      workerUrl: "http://127.0.0.1:9/api/v1/post-production",
+      fetchImpl: async () => {
+        fetched = true;
+        throw new Error("não deveria VPS");
+      },
+    });
+    expect(fetched).toBe(false);
+    expect(rendered.status).toBe("done");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("064 sem ffmpeg local o mesmo pedido vai para a VPS", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "moviola-064v-"));
+  const red = join(dir, "red.mp4");
+  const blue = join(dir, "blue.mp4");
+  const out = join(dir, "final.mp4");
+  const server = await startPostProd(0);
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("porta");
+  const url = `http://127.0.0.1:${address.port}/api/v1/post-production`;
+  try {
+    await colorClip(red, "red");
+    await colorClip(blue, "blue");
+    const session = sessionWith([
+      scene({ id: "a", index: 0, status: "pronta", filePath: red }),
+      scene({ id: "b", index: 1, status: "pronta", filePath: blue }),
+    ]);
+    const rendered = await renderSession(session, out, "2026-10-06T06:02:00.000Z", {
+      probe: async () => ({ found: false, path: null, version: null }),
+      workerUrl: url,
+    });
+    expect(rendered.status).toBe("done");
+    expect(rendered.outputPath).toBe(out);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
     await rm(dir, { recursive: true, force: true });
   }
 });
