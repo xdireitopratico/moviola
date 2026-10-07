@@ -10,3 +10,17 @@ export async function requestClip(scene: Scene, url: string | null, fetchImpl: t
   }
   return scene;
 }
+
+export async function runQueue(scenes: Scene[], step: (scene: Scene) => Promise<Scene>): Promise<Scene[]> {
+  const ordered = [...scenes].sort((a, b) => a.index - b.index);
+  const done: Scene[] = [];
+  let busy = false;
+  for (const scene of ordered) {
+    if (busy) throw new Error("fila paralela");
+    busy = true;
+    const finished = await step({ ...scene, status: "gerando", reason: null });
+    busy = false;
+    done.push(finished);
+  }
+  return done;
+}
