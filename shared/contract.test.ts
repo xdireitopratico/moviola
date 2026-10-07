@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildPostProdRequest,
   createSession,
+  defaultVoice,
   parseSceneStatus,
   writeSceneText,
   type Scene,
@@ -91,5 +92,58 @@ describe("010 a 012 pós-produção", () => {
     expect(built.request.clips).toEqual(["/clipes/0.mp4", "/clipes/1.mp4", "/clipes/2.mp4"]);
     expect(built.request.outputFormat).toBe("mp4");
     expect(built.request.callback).toBe("https://app.local/callback");
+  });
+});
+
+
+describe("054 contrato de voz", () => {
+  test("sessão nova traz id, velocidade e pausa entre cenas", () => {
+    const session = createSession(launch, "2026-10-06T00:00:00.000Z");
+    expect(session.voice).toEqual(defaultVoice());
+    expect(session.voice).toEqual({ id: "", speed: 1, pauseBetweenScenesSeconds: 0 });
+    const edited = {
+      ...session,
+      voice: { id: "pt-br-clara", speed: 1.1, pauseBetweenScenesSeconds: 0.4 },
+    };
+    expect(edited.voice.id).toBe("pt-br-clara");
+    expect(edited.voice.speed).toBe(1.1);
+    expect(edited.voice.pauseBetweenScenesSeconds).toBe(0.4);
+  });
+});
+
+describe("060 música no pedido", () => {
+  test("com música ligada o pedido leva arquivo, volume e fades", () => {
+    const scenes = [
+      scene({ id: "a", index: 0, status: "pronta", filePath: "/clipes/0.mp4", reason: null }),
+      scene({ id: "b", index: 1, status: "pronta", filePath: "/clipes/1.mp4", reason: null }),
+    ];
+    const base = sessionWith(scenes);
+    const withMusic = {
+      ...base,
+      music: {
+        enabled: true,
+        filePath: "/trilha/tema.mp3",
+        volume: 0.25,
+        fadeInSeconds: 1.5,
+        fadeOutSeconds: 2,
+      },
+    };
+    const built = buildPostProdRequest(withMusic, "https://app.local/callback");
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.request.music).toEqual({
+      filePath: "/trilha/tema.mp3",
+      volume: 0.25,
+      fadeInSeconds: 1.5,
+      fadeOutSeconds: 2,
+    });
+  });
+
+  test("com música desligada o pedido leva music null", () => {
+    const scenes = [scene({ id: "a", index: 0, status: "pronta", filePath: "/clipes/0.mp4", reason: null })];
+    const built = buildPostProdRequest(sessionWith(scenes), "https://app.local/callback");
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.request.music).toBeNull();
   });
 });
