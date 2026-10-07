@@ -102,3 +102,45 @@ test("044 o worker concatena dois clipes de cor e devolve um mp4", async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("048 dry_run devolve o pedido e não chama o ffmpeg", async () => {
+  const session = sessionWith([
+    scene({ id: "a", index: 0, status: "pronta", filePath: "/clipes/inexistente-0.mp4" }),
+    scene({ id: "b", index: 1, status: "pronta", filePath: "/clipes/inexistente-1.mp4" }),
+  ]);
+  const viaDecide = await decide(
+    "POST",
+    "/api/v1/post-production",
+    JSON.stringify({ session, callback: "app://callback", dry_run: true }),
+  );
+  expect(viaDecide.status).toBe(200);
+  expect(viaDecide.clips).toBeUndefined();
+  expect(viaDecide.body).toEqual({
+    ok: true,
+    request: {
+      sessionId: session.id,
+      projectName: session.projectName,
+      clips: ["/clipes/inexistente-0.mp4", "/clipes/inexistente-1.mp4"],
+      narrationUrl: null,
+      outputFormat: "mp4",
+      callback: "app://callback",
+    },
+  });
+
+  const server = await startPostProd(0);
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("porta");
+  try {
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/v1/post-production`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ session, callback: "app://callback", dry_run: true }),
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    const body = await response.json();
+    expect(body).toEqual(viaDecide.body);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  }
+});

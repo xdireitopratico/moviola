@@ -13,9 +13,9 @@ export async function decide(
   if (method !== "POST" || path !== "/api/v1/post-production") {
     return { status: 404, body: { error: "não encontrado" } };
   }
-  let payload: { session?: Session; callback?: string };
+  let payload: { session?: Session; callback?: string; dry_run?: boolean };
   try {
-    payload = raw ? (JSON.parse(raw) as { session?: Session; callback?: string }) : {};
+    payload = raw ? (JSON.parse(raw) as { session?: Session; callback?: string; dry_run?: boolean }) : {};
   } catch {
     return { status: 400, body: { error: "json inválido" } };
   }
@@ -28,6 +28,9 @@ export async function decide(
       status: 409,
       body: { ok: false, sceneId: built.sceneId, sceneIndex: built.sceneIndex, reason: built.reason },
     };
+  }
+  if (payload.dry_run) {
+    return { status: 200, body: { ok: true, request: built.request } };
   }
   return { status: 200, body: { accepted: true }, clips: built.request.clips };
 }

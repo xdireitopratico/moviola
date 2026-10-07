@@ -87,7 +87,7 @@ Não faça a Criação, o Editor, recentes ligados em dados, nem o botão que gr
 045. **Eu** — `feito` — depende 044 — O callback grava o mp4 e marca a sessão `done` ou `failed`.
 046. **Eu** — `feito` — depende 045 — Teste do worker com arquivo real, sem resposta forjada.
 047. **Eu** — `feito` — depende 040, 046 — O app chama o worker e espera `done` ou `failed`.
-048. **Eu** — `aberto` — depende 042 — `dry_run` devolve o pedido e não chama o ffmpeg.
+048. **Eu** — `feito` — depende 042 — `dry_run` devolve o pedido e não chama o ffmpeg.
 049. **Lumen** — `aberto` — depende 047 — O monitor do Editor toca o mp4 da sessão.
 050. **Lumen** — `aberto` — depende 016, 049 — A faixa V1 mostra os clipes na ordem salva.
 051. **Lumen** — `aberto` — depende 049 — Exportar copia o mp4 para o caminho escolhido.
