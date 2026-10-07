@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from "electron";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildPostProdRequest, type Launch } from "../shared/contract.ts";
+import { callWorker } from "../shared/postprod.ts";
 import { launchFrom, writeLaunch } from "../shared/launch.ts";
 import { openSession, regenerateScene } from "../shared/operations.ts";
 import { listSessions, readSession, reorderScenes, saveSession, setNarration } from "../shared/store.ts";
@@ -34,6 +35,14 @@ function registerSessionIpc(): void {
   ipcMain.handle("moviola:gate", async (_event, id: string) => {
     const session = await readSession(root, id);
     return buildPostProdRequest(session, "app://callback");
+  });
+  ipcMain.handle("moviola:render", async (_event, id: string) => {
+    const current = await readSession(root, id);
+    const dest = join(root, `${id}.mp4`);
+    const url = process.env.MOVIOLA_POSTPROD_URL ?? "http://127.0.0.1:8085/api/v1/post-production";
+    const next = await callWorker(current, url, dest, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
   });
   ipcMain.handle("moviola:regenerate", async (_event, id: string, sceneId: string) => {
     const current = await readSession(root, id);

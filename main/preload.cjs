@@ -24,5 +24,8 @@ import_electron.contextBridge.exposeInMainWorld("moviola", {
   },
   gate(id) {
     return import_electron.ipcRenderer.invoke("moviola:gate", id);
+  },
+  render(id) {
+    return import_electron.ipcRenderer.invoke("moviola:render", id);
   }
 });

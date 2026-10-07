@@ -26,4 +26,7 @@ contextBridge.exposeInMainWorld("moviola", {
   gate(id: string): Promise<{ ok: true } | { ok: false; sceneId: string; sceneIndex: number; reason: string }> {
     return ipcRenderer.invoke("moviola:gate", id);
   },
+  render(id: string): Promise<Session> {
+    return ipcRenderer.invoke("moviola:render", id);
+  },
 });

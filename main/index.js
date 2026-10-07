@@ -21,9 +21,12 @@ function createSession(launch, now = new Date().toISOString()) {
         prompt: "",
         durationSeconds: launch.durationSeconds,
         status: "vazia",
-        filePath: null
+        filePath: null,
+        reason: null
       }
     ],
+    outputPath: null,
+    reason: null,
     createdAt: now,
     updatedAt: now,
     lastEvent: null
@@ -67,15 +70,67 @@ function buildPostProdRequest(session, callback) {
   };
 }
 
+// shared/callback.ts
+import { writeFile } from "node:fs/promises";
+async function applyCallback(session, result, destPath, now, write = writeFile) {
+  if (!result.ok) {
+    return {
+      ...session,
+      status: "failed",
+      outputPath: null,
+      reason: result.reason,
+      updatedAt: now
+    };
+  }
+  await write(destPath, result.bytes);
+  return {
+    ...session,
+    status: "done",
+    outputPath: destPath,
+    reason: null,
+    updatedAt: now
+  };
+}
+
+// shared/postprod.ts
+async function callWorker(session, workerUrl, destPath, now, fetchImpl = fetch) {
+  if (!workerUrl) {
+    return applyCallback(session, { ok: false, reason: "sem url" }, destPath, now);
+  }
+  const built = buildPostProdRequest(session, "app://callback");
+  if (!built.ok) {
+    return applyCallback(session, { ok: false, reason: built.reason }, destPath, now);
+  }
+  try {
+    const response = await fetchImpl(workerUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ session, callback: "app://callback" })
+    });
+    if (!response.ok) {
+      return applyCallback(session, { ok: false, reason: `http ${response.status}` }, destPath, now);
+    }
+    const type = response.headers.get("content-type") ?? "";
+    if (!type.includes("video/mp4")) {
+      return applyCallback(session, { ok: false, reason: "resposta sem mp4" }, destPath, now);
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    return applyCallback(session, { ok: true, bytes }, destPath, now);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "falha de rede";
+    return applyCallback(session, { ok: false, reason }, destPath, now);
+  }
+}
+
 // shared/store.ts
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile as writeFile2 } from "node:fs/promises";
 import { join } from "node:path";
 function fileOf(root, id) {
   return join(root, `${id}.json`);
 }
 async function saveSession(root, session) {
   await mkdir(root, { recursive: true });
-  await writeFile(fileOf(root, session.id), JSON.stringify(session), "utf8");
+  await writeFile2(fileOf(root, session.id), JSON.stringify(session), "utf8");
 }
 async function readSession(root, id) {
   const raw = await readFile(fileOf(root, id), "utf8");
@@ -186,6 +241,14 @@ function registerSessionIpc() {
   ipcMain.handle("moviola:gate", async (_event, id) => {
     const session = await readSession(root, id);
     return buildPostProdRequest(session, "app://callback");
+  });
+  ipcMain.handle("moviola:render", async (_event, id) => {
+    const current = await readSession(root, id);
+    const dest = join2(root, `${id}.mp4`);
+    const url = process.env.MOVIOLA_POSTPROD_URL ?? "http://127.0.0.1:8085/api/v1/post-production";
+    const next = await callWorker(current, url, dest, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
   });
   ipcMain.handle("moviola:regenerate", async (_event, id, sceneId) => {
     const current = await readSession(root, id);
@@ -325,7 +388,8 @@ app.whenReady().then(async () => {
       prompt: "",
       durationSeconds: 4,
       status,
-      filePath: null
+      filePath: null,
+      reason: null
     }));
     await saveSession(sessionsRoot(), opened.session);
     await win.loadFile(join2(here, "..", "app", "criacao", "index.html"), { query: { session: opened.session.id } });
