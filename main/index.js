@@ -59,11 +59,16 @@ function createSession(launch, now = new Date().toISOString()) {
         durationSeconds: launch.durationSeconds,
         status: "vazia",
         filePath: null,
-        reason: null
+        reason: null,
+        scale: 1,
+        positionX: 0,
+        positionY: 0,
+        opacity: 1
       }
     ],
     voice: defaultVoice(),
     music: defaultMusic(),
+    textTracks: [],
     outputPath: null,
     reason: null,
     createdAt: now,
@@ -114,6 +119,7 @@ function buildPostProdRequest(session, callback) {
       clips: ordered.map((scene) => scene.filePath),
       narrationUrl: null,
       music: musicForRequest(session.music),
+      textTracks: session.textTracks,
       outputFormat: "mp4",
       callback
     }
@@ -452,7 +458,11 @@ app.whenReady().then(async () => {
       durationSeconds: 4,
       status,
       filePath: null,
-      reason: null
+      reason: null,
+      scale: 1,
+      positionX: 0,
+      positionY: 0,
+      opacity: 1
     }));
     await saveSession(sessionsRoot(), opened.session);
     await win.loadFile(join2(here, "..", "app", "criacao", "index.html"), { query: { session: opened.session.id } });

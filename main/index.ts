@@ -220,6 +220,10 @@ app.whenReady().then(async () => {
       status,
       filePath: null,
       reason: null,
+      scale: 1,
+      positionX: 0,
+      positionY: 0,
+      opacity: 1,
     }));
     await saveSession(sessionsRoot(), opened.session);
     await win.loadFile(join(here, "..", "app", "criacao", "index.html"), { query: { session: opened.session.id } });

@@ -123,3 +123,25 @@ describe("store", () => {
     }
   });
 });
+
+
+test("066 escala posição e opacidade sobrevivem a reabrir", async () => {
+  const dir = await root();
+  try {
+    const session = createSession(launch, "2026-10-06T00:00:00.000Z");
+    const first = session.scenes[0];
+    if (!first) throw new Error("sem cena");
+    const edited = {
+      ...session,
+      scenes: [{ ...first, scale: 1.4, positionX: 12, positionY: -8, opacity: 0.75 }],
+    };
+    await saveSession(dir, edited);
+    const read = await readSession(dir, session.id);
+    expect(read.scenes[0]?.scale).toBe(1.4);
+    expect(read.scenes[0]?.positionX).toBe(12);
+    expect(read.scenes[0]?.positionY).toBe(-8);
+    expect(read.scenes[0]?.opacity).toBe(0.75);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

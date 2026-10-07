@@ -23,6 +23,10 @@ function scene(patch: Partial<Scene> & Pick<Scene, "id" | "index" | "status">): 
     durationSeconds: 8,
     filePath: null,
     reason: null,
+    scale: 1,
+    positionX: 0,
+    positionY: 0,
+    opacity: 1,
     ...patch,
   };
 }

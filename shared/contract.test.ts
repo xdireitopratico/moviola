@@ -23,6 +23,11 @@ function scene(patch: Partial<Scene> & Pick<Scene, "id" | "index" | "status">): 
     prompt: "",
     durationSeconds: 8,
     filePath: null,
+    reason: null,
+    scale: 1,
+    positionX: 0,
+    positionY: 0,
+    opacity: 1,
     ...patch,
   };
 }
@@ -145,5 +150,32 @@ describe("060 música no pedido", () => {
     expect(built.ok).toBe(true);
     if (!built.ok) return;
     expect(built.request.music).toBeNull();
+  });
+});
+
+
+describe("066 escala posição opacidade", () => {
+  test("cena nova traz escala 1, posição 0 e opacidade 1", () => {
+    const session = createSession(launch, "2026-10-06T00:00:00.000Z");
+    const scene = session.scenes[0];
+    expect(scene?.scale).toBe(1);
+    expect(scene?.positionX).toBe(0);
+    expect(scene?.positionY).toBe(0);
+    expect(scene?.opacity).toBe(1);
+  });
+});
+
+describe("073 faixa de texto no pedido", () => {
+  test("o pedido leva as faixas de texto da sessão", () => {
+    const scenes = [scene({ id: "a", index: 0, status: "pronta", filePath: "/clipes/0.mp4", reason: null })];
+    const base = sessionWith(scenes);
+    const withText = {
+      ...base,
+      textTracks: [{ id: "t1", text: "Olá", startSeconds: 0, endSeconds: 2 }],
+    };
+    const built = buildPostProdRequest(withText, "https://app.local/callback");
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.request.textTracks).toEqual([{ id: "t1", text: "Olá", startSeconds: 0, endSeconds: 2 }]);
   });
 });

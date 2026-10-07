@@ -21,6 +21,10 @@ function scene(patch: Partial<Scene> & Pick<Scene, "id" | "index" | "status">): 
     durationSeconds: 8,
     filePath: null,
     reason: null,
+    scale: 1,
+    positionX: 0,
+    positionY: 0,
+    opacity: 1,
     ...patch,
   };
 }
@@ -123,6 +127,7 @@ test("048 dry_run devolve o pedido e não chama o ffmpeg", async () => {
       clips: ["/clipes/inexistente-0.mp4", "/clipes/inexistente-1.mp4"],
       narrationUrl: null,
       music: null,
+      textTracks: [],
       outputFormat: "mp4",
       callback: "app://callback",
     },

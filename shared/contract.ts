@@ -12,6 +12,10 @@ export interface Scene {
   status: SceneStatus;
   filePath: string | null;
   reason: string | null;
+  scale: number;
+  positionX: number;
+  positionY: number;
+  opacity: number;
 }
 
 export interface Launch {
@@ -42,6 +46,13 @@ export interface MusicRequest {
   fadeOutSeconds: number;
 }
 
+export interface TextTrack {
+  id: string;
+  text: string;
+  startSeconds: number;
+  endSeconds: number;
+}
+
 export const sessionStatuses = ["briefing", "done", "failed"] as const;
 
 export type SessionStatus = (typeof sessionStatuses)[number];
@@ -54,6 +65,7 @@ export interface Session {
   scenes: Scene[];
   voice: VoiceSettings;
   music: MusicSettings;
+  textTracks: TextTrack[];
   outputPath: string | null;
   reason: string | null;
   createdAt: string;
@@ -75,6 +87,7 @@ export interface PostProdRequest {
   clips: string[];
   narrationUrl: string | null;
   music: MusicRequest | null;
+  textTracks: TextTrack[];
   outputFormat: "mp4";
   callback: string;
 }
@@ -127,10 +140,15 @@ export function createSession(launch: Launch, now = new Date().toISOString()): S
         status: "vazia",
         filePath: null,
         reason: null,
+        scale: 1,
+        positionX: 0,
+        positionY: 0,
+        opacity: 1,
       },
     ],
     voice: defaultVoice(),
     music: defaultMusic(),
+    textTracks: [],
     outputPath: null,
     reason: null,
     createdAt: now,
@@ -185,6 +203,7 @@ export function buildPostProdRequest(session: Session, callback: string): PostPr
       clips: ordered.map((scene) => scene.filePath as string),
       narrationUrl: null,
       music: musicForRequest(session.music),
+      textTracks: session.textTracks,
       outputFormat: "mp4",
       callback,
     },
