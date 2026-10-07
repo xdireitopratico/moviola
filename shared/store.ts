@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { writeSceneText, type Launch, type Session } from "./contract.ts";
+import { writeSceneText, type Launch, type Session, type VoiceSettings, type TextTrack } from "./contract.ts";
 
 function fileOf(root: string, id: string): string {
   return join(root, `${id}.json`);
@@ -68,3 +68,52 @@ export function lockScene(session: Session, sceneId: string, now: string): Sessi
     ),
   };
 }
+
+export function setVoice(session: Session, voice: VoiceSettings, now: string): Session {
+  return {
+    ...session,
+    voice: {
+      id: String(voice.id ?? ""),
+      speed: Number(voice.speed),
+      pauseBetweenScenesSeconds: Number(voice.pauseBetweenScenesSeconds),
+    },
+    updatedAt: now,
+  };
+}
+
+export function setSceneTransform(
+  session: Session,
+  sceneId: string,
+  transform: { scale: number; positionX: number; positionY: number; opacity: number },
+  now: string,
+): Session {
+  return {
+    ...session,
+    updatedAt: now,
+    scenes: session.scenes.map((scene) => {
+      if (scene.id !== sceneId) return scene;
+      return {
+        ...scene,
+        scale: Number(transform.scale),
+        positionX: Number(transform.positionX),
+        positionY: Number(transform.positionY),
+        opacity: Number(transform.opacity),
+      };
+    }),
+  };
+}
+
+export function setTextTracks(session: Session, textTracks: TextTrack[], now: string): Session {
+  return {
+    ...session,
+    textTracks: textTracks.map((track) => ({
+      id: String(track.id),
+      text: String(track.text ?? ""),
+      startSeconds: Number(track.startSeconds),
+      endSeconds: Number(track.endSeconds),
+      locked: Boolean(track.locked),
+    })),
+    updatedAt: now,
+  };
+}
+

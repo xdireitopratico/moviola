@@ -28,6 +28,8 @@ function scene(patch: Partial<Scene> & Pick<Scene, "id" | "index" | "status">): 
     positionX: 0,
     positionY: 0,
     opacity: 1,
+    kenBurns: { enabled: false, startScale: 1, endScale: 1.1 },
+    colorBrightness: 0,
     ...patch,
   };
 }
@@ -171,11 +173,92 @@ describe("073 faixa de texto no pedido", () => {
     const base = sessionWith(scenes);
     const withText = {
       ...base,
-      textTracks: [{ id: "t1", text: "Olá", startSeconds: 0, endSeconds: 2 }],
+      textTracks: [{ id: "t1", text: "Olá", startSeconds: 0, endSeconds: 2, locked: false }],
     };
     const built = buildPostProdRequest(withText, "https://app.local/callback");
     expect(built.ok).toBe(true);
     if (!built.ok) return;
-    expect(built.request.textTracks).toEqual([{ id: "t1", text: "Olá", startSeconds: 0, endSeconds: 2 }]);
+    expect(built.request.textTracks).toEqual([{ id: "t1", text: "Olá", startSeconds: 0, endSeconds: 2, locked: false }]);
+  });
+});
+
+
+describe("056 narração no pedido", () => {
+  test("com narrationUrl o pedido leva a narração", () => {
+    const scenes = [scene({ id: "a", index: 0, status: "pronta", filePath: "/clipes/0.mp4" })];
+    const base = sessionWith(scenes);
+    const withNarration = { ...base, narrationUrl: "/audio/voz.wav" };
+    const built = buildPostProdRequest(withNarration, "https://app.local/callback");
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.request.narrationUrl).toBe("/audio/voz.wav");
+  });
+});
+
+describe("059 legenda no pedido", () => {
+  test("com legenda ligada o pedido leva o SRT", () => {
+    const scenes = [scene({ id: "a", index: 0, status: "pronta", filePath: "/clipes/0.mp4" })];
+    const base = sessionWith(scenes);
+    const withCaps = {
+      ...base,
+      captions: { enabled: true, srt: "1\n00:00:00,000 --> 00:00:01,000\nOlá" },
+    };
+    const built = buildPostProdRequest(withCaps, "https://app.local/callback");
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.request.srt).toContain("Olá");
+  });
+
+  test("com legenda desligada o pedido leva srt null", () => {
+    const scenes = [scene({ id: "a", index: 0, status: "pronta", filePath: "/clipes/0.mp4" })];
+    const built = buildPostProdRequest(sessionWith(scenes), "https://app.local/callback");
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.request.srt).toBeNull();
+  });
+});
+
+describe("068 Ken Burns no pedido", () => {
+  test("ken burns da cena entra em clipEffects", () => {
+    const scenes = [
+      scene({
+        id: "a",
+        index: 0,
+        status: "pronta",
+        filePath: "/clipes/0.mp4",
+        kenBurns: { enabled: true, startScale: 1, endScale: 1.3 },
+      }),
+    ];
+    const built = buildPostProdRequest(sessionWith(scenes), "https://app.local/callback");
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.request.clipEffects[0]?.kenBurns).toEqual({ enabled: true, startScale: 1, endScale: 1.3 });
+  });
+});
+
+describe("075 faixa travada", () => {
+  test("faixa travada não entra no render seguinte", () => {
+    const scenes = [scene({ id: "a", index: 0, status: "pronta", filePath: "/clipes/0.mp4" })];
+    const base = sessionWith(scenes);
+    const withTracks = {
+      ...base,
+      textTracks: [
+        { id: "t1", text: "livre", startSeconds: 0, endSeconds: 1, locked: false },
+        { id: "t2", text: "travada", startSeconds: 1, endSeconds: 2, locked: true },
+      ],
+    };
+    const built = buildPostProdRequest(withTracks, "https://app.local/callback");
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.request.textTracks).toEqual([
+      { id: "t1", text: "livre", startSeconds: 0, endSeconds: 1, locked: false },
+    ]);
+  });
+});
+
+describe("081 marca vazia", () => {
+  test("sessão nova começa com marca vazia", () => {
+    const session = createSession(launch, "2026-10-06T00:00:00.000Z");
+    expect(session.brand).toBe("");
   });
 });

@@ -2,6 +2,12 @@ export const sceneStatuses = ["vazia", "gerando", "pronta", "falhou", "travada"]
 
 export type SceneStatus = (typeof sceneStatuses)[number];
 
+export interface KenBurns {
+  enabled: boolean;
+  startScale: number;
+  endScale: number;
+}
+
 export interface Scene {
   id: string;
   index: number;
@@ -16,6 +22,8 @@ export interface Scene {
   positionX: number;
   positionY: number;
   opacity: number;
+  kenBurns: KenBurns;
+  colorBrightness: number;
 }
 
 export interface Launch {
@@ -51,6 +59,12 @@ export interface TextTrack {
   text: string;
   startSeconds: number;
   endSeconds: number;
+  locked: boolean;
+}
+
+export interface CaptionsSettings {
+  enabled: boolean;
+  srt: string | null;
 }
 
 export const sessionStatuses = ["briefing", "done", "failed"] as const;
@@ -61,10 +75,13 @@ export interface Session {
   id: string;
   projectName: string;
   status: SessionStatus;
+  brand: string;
   launch: Launch;
   scenes: Scene[];
   voice: VoiceSettings;
   music: MusicSettings;
+  captions: CaptionsSettings;
+  narrationUrl: string | null;
   textTracks: TextTrack[];
   outputPath: string | null;
   reason: string | null;
@@ -81,12 +98,20 @@ export interface ActivityEvent {
   detail: string;
 }
 
+export interface ClipRequest {
+  path: string;
+  kenBurns: KenBurns;
+  colorBrightness: number;
+}
+
 export interface PostProdRequest {
   sessionId: string;
   projectName: string;
   clips: string[];
+  clipEffects: ClipRequest[];
   narrationUrl: string | null;
   music: MusicRequest | null;
+  srt: string | null;
   textTracks: TextTrack[];
   outputFormat: "mp4";
   callback: string;
@@ -123,31 +148,51 @@ export function defaultMusic(): MusicSettings {
   };
 }
 
+export function defaultKenBurns(): KenBurns {
+  return { enabled: false, startScale: 1, endScale: 1.1 };
+}
+
+export function defaultCaptions(): CaptionsSettings {
+  return { enabled: false, srt: null };
+}
+
+export function defaultScene(partial: Partial<Scene> & Pick<Scene, "id" | "index">): Scene {
+  return {
+    title: "",
+    narration: "",
+    prompt: "",
+    durationSeconds: 8,
+    status: "vazia",
+    filePath: null,
+    reason: null,
+    scale: 1,
+    positionX: 0,
+    positionY: 0,
+    opacity: 1,
+    kenBurns: defaultKenBurns(),
+    colorBrightness: 0,
+    ...partial,
+  };
+}
+
 export function createSession(launch: Launch, now = new Date().toISOString()): Session {
   return {
     id: crypto.randomUUID(),
     projectName: launch.theme.trim() || "Sem título",
     status: "briefing",
+    brand: "",
     launch,
     scenes: [
-      {
+      defaultScene({
         id: crypto.randomUUID(),
         index: 0,
-        title: "",
-        narration: "",
-        prompt: "",
         durationSeconds: launch.durationSeconds,
-        status: "vazia",
-        filePath: null,
-        reason: null,
-        scale: 1,
-        positionX: 0,
-        positionY: 0,
-        opacity: 1,
-      },
+      }),
     ],
     voice: defaultVoice(),
     music: defaultMusic(),
+    captions: defaultCaptions(),
+    narrationUrl: null,
     textTracks: [],
     outputPath: null,
     reason: null,
@@ -175,6 +220,10 @@ export function musicForRequest(music: MusicSettings): MusicRequest | null {
   };
 }
 
+export function activeTextTracks(tracks: TextTrack[]): TextTrack[] {
+  return tracks.filter((track) => !track.locked);
+}
+
 export function buildPostProdRequest(session: Session, callback: string): PostProdBuild {
   const ordered = [...session.scenes].sort((a, b) => a.index - b.index);
   const incomplete = ordered.find((scene) => scene.status !== "pronta");
@@ -195,15 +244,22 @@ export function buildPostProdRequest(session: Session, callback: string): PostPr
       reason: "sem_arquivo",
     };
   }
+  const clips = ordered.map((scene) => scene.filePath as string);
   return {
     ok: true,
     request: {
       sessionId: session.id,
       projectName: session.projectName,
-      clips: ordered.map((scene) => scene.filePath as string),
-      narrationUrl: null,
+      clips,
+      clipEffects: ordered.map((scene) => ({
+        path: scene.filePath as string,
+        kenBurns: scene.kenBurns,
+        colorBrightness: scene.colorBrightness,
+      })),
+      narrationUrl: session.narrationUrl,
       music: musicForRequest(session.music),
-      textTracks: session.textTracks,
+      srt: session.captions.enabled ? session.captions.srt : null,
+      textTracks: activeTextTracks(session.textTracks),
       outputFormat: "mp4",
       callback,
     },
