@@ -2,11 +2,12 @@ import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { exportOutput, mediaUrl } from "../shared/media.ts";
-import { buildPostProdRequest, type Launch } from "../shared/contract.ts";
+import { previewVoice } from "../shared/voice.ts";
+import { buildPostProdRequest, defaultVoice, type Launch, type VoiceSettings, type TextTrack } from "../shared/contract.ts";
 import { callWorker } from "../shared/postprod.ts";
 import { launchFrom, writeLaunch } from "../shared/launch.ts";
 import { openSession, regenerateScene } from "../shared/operations.ts";
-import { listSessions, readSession, reorderScenes, saveSession, setNarration } from "../shared/store.ts";
+import { listSessions, readSession, reorderScenes, saveSession, setNarration, setVoice, setSceneTransform, setTextTracks } from "../shared/store.ts";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 
@@ -69,7 +70,44 @@ function registerSessionIpc(): void {
       return result.filePath;
     });
   });
+  ipcMain.handle("moviola:setVoice", async (_event, id: string, voice: VoiceSettings) => {
+    const current = await readSession(root, id);
+    const next = setVoice(current, voice ?? defaultVoice(), new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:previewVoice", async (_event, id: string, text?: string) => {
+    const session = await readSession(root, id);
+    const voice = session.voice ?? defaultVoice();
+    const ordered = [...session.scenes].sort((a, b) => a.index - b.index);
+    const sample = typeof text === "string" ? text : (ordered[0]?.narration ?? "");
+    const dest = join(root, `${id}-preview.wav`);
+    const url = process.env.MOVIOLA_TTS_URL ?? null;
+    return previewVoice(voice, sample, url, dest);
+  });
+  ipcMain.handle(
+    "moviola:setSceneTransform",
+    async (
+      _event,
+      id: string,
+      sceneId: string,
+      transform: { scale: number; positionX: number; positionY: number; opacity: number },
+    ) => {
+      const current = await readSession(root, id);
+      const next = setSceneTransform(current, sceneId, transform, new Date().toISOString());
+      await saveSession(root, next);
+      return next;
+    },
+  );
+  ipcMain.handle("moviola:setTextTracks", async (_event, id: string, textTracks: TextTrack[]) => {
+    const current = await readSession(root, id);
+    const next = setTextTracks(current, textTracks, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+
 }
+
 
 app.whenReady().then(async () => {
   registerSessionIpc();
@@ -224,6 +262,8 @@ app.whenReady().then(async () => {
       positionX: 0,
       positionY: 0,
       opacity: 1,
+      kenBurns: { enabled: false, startScale: 1, endScale: 1.1 },
+      colorBrightness: 0,
     }));
     await saveSession(sessionsRoot(), opened.session);
     await win.loadFile(join(here, "..", "app", "criacao", "index.html"), { query: { session: opened.session.id } });

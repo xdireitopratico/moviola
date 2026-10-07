@@ -1,4 +1,4 @@
-import { createSession, type ActivityEvent, type Launch, type Scene, type Session } from "./contract.ts";
+import { createSession, defaultScene, type ActivityEvent, type Launch, type Scene, type Session } from "./contract.ts";
 import { runQueue } from "./generate.ts";
 
 export { createSession };
@@ -40,21 +40,14 @@ function beats(theme: string): Beat[] {
 }
 
 function draft(beat: Beat, index: number, durationSeconds: number, id: string): Scene {
-  return {
+  return defaultScene({
     id,
     index,
     title: beat.title,
     narration: beat.narration,
     prompt: beat.prompt,
     durationSeconds,
-    status: "vazia",
-    filePath: null,
-    reason: null,
-    scale: 1,
-    positionX: 0,
-    positionY: 0,
-    opacity: 1,
-  };
+  });
 }
 
 export function fillStoryboard(session: Session, now: string): Session {
@@ -104,4 +97,42 @@ export async function regenerateThroughQueue(
     session: { ...marked.session, scenes, updatedAt: now, lastEvent: marked.event },
     event: marked.event,
   };
+}
+
+export function splitScene(
+  session: Session,
+  sceneId: string,
+  atSeconds: number,
+  now: string,
+): Session {
+  const target = session.scenes.find((scene) => scene.id === sceneId);
+  if (!target) throw new Error(`cena ausente: ${sceneId}`);
+  if (atSeconds <= 0 || atSeconds >= target.durationSeconds) {
+    throw new Error("corte inválido");
+  }
+  const left = defaultScene({
+    ...target,
+    id: crypto.randomUUID(),
+    durationSeconds: atSeconds,
+  });
+  const right = defaultScene({
+    ...target,
+    id: crypto.randomUUID(),
+    durationSeconds: target.durationSeconds - atSeconds,
+    filePath: null,
+    status: target.filePath ? "vazia" : target.status,
+  });
+  const without = session.scenes.filter((scene) => scene.id !== sceneId);
+  const insertAt = target.index;
+  const scenes = [...without, left, right]
+    .sort((a, b) => a.index - b.index)
+    .map((scene, index) => {
+      if (scene.id === left.id) return { ...left, index: insertAt };
+      if (scene.id === right.id) return { ...right, index: insertAt + 1 };
+      return { ...scene, index: scene.index >= insertAt ? scene.index + 1 : scene.index };
+    })
+    .sort((a, b) => a.index - b.index)
+    .map((scene, index) => ({ ...scene, index }));
+  const event = record(session.id, now, "splitScene", sceneId);
+  return { ...session, scenes, updatedAt: now, lastEvent: event };
 }

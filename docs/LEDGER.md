@@ -95,10 +95,10 @@ Não faça a Criação, o Editor, recentes ligados em dados, nem o botão que gr
 053. **Eu** — `feito` — depende 026, 047, 051 — Um script na VPS percorre tema, sessão, cenas, clipes, mp4 e exportação, e termina verde.
 054. **Eu** — `feito` — depende 006 — Contrato de voz: id, velocidade e pausa entre cenas.
 055. **Eu** — `feito` — depende 054 — A pré-escuta baixa um áudio ou falha com motivo.
-056. **Eu** — `aberto` — depende 012, 055 — A narração entra no pedido de pós-produção.
-057. **Lumen** — `aberto` — depende 033, 054 — A aba Narração grava voz, velocidade e pausa, e dispara a prévia.
-058. **Eu** — `aberto` — depende 056 — Gerar o SRT a partir da narração.
-059. **Eu** — `aberto` — depende 012, 058 — Com legenda ligada, o pedido leva o SRT.
+056. **Eu** — `feito` — depende 012, 055 — A narração entra no pedido de pós-produção.
+057. **Lumen** — `feito` — depende 033, 054 — A aba Narração grava voz, velocidade e pausa, e dispara a prévia.
+058. **Eu** — `feito` — depende 056 — Gerar o SRT a partir da narração.
+059. **Eu** — `feito` — depende 012, 058 — Com legenda ligada, o pedido leva o SRT.
 060. **Eu** — `feito` — depende 012 — Com música ligada, o pedido leva arquivo, volume e fades.
 061. **Lumen** — `aberto` — depende 059, 060 — As abas Legendas e Trilha passam a gravar.
 062. **Eu** — `feito` — depende 044 — Probe do ffmpeg local: achou ou não, com caminho e versão.
@@ -107,20 +107,20 @@ Não faça a Criação, o Editor, recentes ligados em dados, nem o botão que gr
 065. **Eu** — `feito` — depende 041 — Regenerar pelo inspetor usa a mesma fila.
 066. **Eu** — `feito` — depende 006 — Escala, posição e opacidade do clipe entram no contrato e sobrevivem a reabrir a sessão.
 067. **Lumen** — `aberto` — depende 066 — O inspetor Clipe edita escala, posição e opacidade.
-068. **Eu** — `aberto` — depende 044, 066 — Ken Burns entra no pedido e o worker aplica.
-069. **Eu** — `aberto` — depende 044 — Cor: o worker aplica um ajuste, ou a aba fica desabilitada. O teste prova qual dos dois vale, e que a aba desabilitada não grava.
+068. **Eu** — `feito` — depende 044, 066 — Ken Burns entra no pedido e o worker aplica.
+069. **Eu** — `feito` — depende 044 — Cor: o worker aplica um ajuste, ou a aba fica desabilitada. O teste prova qual dos dois vale, e que a aba desabilitada não grava.
 070. **Lumen** — `aberto` — depende 069 — A aba Cor segue a decisão do 069.
-071. **Eu** — `aberto` — depende 044 — A lâmina divide o clipe e o worker renderiza os dois trechos.
+071. **Eu** — `feito` — depende 044 — A lâmina divide o clipe e o worker renderiza os dois trechos.
 072. **Lumen** — `aberto` — depende 071 — A ferramenta lâmina chama essa operação.
 073. **Eu** — `feito` — depende 012 — A faixa de texto entra no pedido.
 074. **Lumen** — `aberto` — depende 073 — A faixa V2 edita esse texto.
-075. **Eu** — `aberto` — depende 044 — Faixa travada não entra no render seguinte.
-076. **Eu** — `aberto` — depende 066 — Desfazer e refazer uma edição de clipe.
+075. **Eu** — `feito` — depende 044 — Faixa travada não entra no render seguinte.
+076. **Eu** — `feito` — depende 066 — Desfazer e refazer uma edição de clipe.
 077. **Lumen** — `aberto` — depende 076 — Os botões desfazer e refazer chamam essa operação.
 078. **Eu** — `aberto` — depende 053 — O electron-builder, na VPS, gera o instalador Windows.
 079. **Eu** — `aberto` — depende 078 — A versão dentro do binário é `0.1.0-beta.001`.
 080. **Eu** — `aberto` — depende 021, 079 — O updater aponta para as GitHub Releases deste repositório, ainda sem release publicada.
-081. **Eu** — `aberto` — depende 006 — A marca começa vazia. Verificar: busca no repositório não acha "Direito Prático".
+081. **Eu** — `feito` — depende 006 — A marca começa vazia. Verificar: busca no repositório não acha "Direito Prático".
 082. **Lumen** — `aberto` — depende 081 — O campo de marca no inspetor abre vazio.
 083. **Eu** — `aberto` — depende 040 — Ingerir um vídeo local cria um clipe com a duração lida do arquivo.
 084. **Eu** — `aberto` — depende 071 — Recortar um trecho desse arquivo.

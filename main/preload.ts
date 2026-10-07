@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { Launch, Session } from "../shared/contract.ts";
+import type { Launch, Session, VoiceSettings, TextTrack } from "../shared/contract.ts";
 
 contextBridge.exposeInMainWorld("moviola", {
   list(): Promise<Session[]> {
@@ -36,5 +36,21 @@ contextBridge.exposeInMainWorld("moviola", {
     { ok: true; path: string } | { ok: false; reason: "cancelado" | "sem_saida" | "arquivo_ausente" }
   > {
     return ipcRenderer.invoke("moviola:export", id);
+  },
+  setVoice(id: string, voice: VoiceSettings): Promise<Session> {
+    return ipcRenderer.invoke("moviola:setVoice", id, voice);
+  },
+  previewVoice(id: string, text?: string): Promise<{ ok: true; filePath: string } | { ok: false; reason: string }> {
+    return ipcRenderer.invoke("moviola:previewVoice", id, text);
+  },
+  setSceneTransform(
+    id: string,
+    sceneId: string,
+    transform: { scale: number; positionX: number; positionY: number; opacity: number },
+  ): Promise<Session> {
+    return ipcRenderer.invoke("moviola:setSceneTransform", id, sceneId, transform);
+  },
+  setTextTracks(id: string, textTracks: TextTrack[]): Promise<Session> {
+    return ipcRenderer.invoke("moviola:setTextTracks", id, textTracks);
   },
 });

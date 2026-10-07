@@ -73,6 +73,13 @@ describe("store", () => {
         durationSeconds: 8,
         status: "vazia",
         filePath: null,
+        reason: null,
+        scale: 1,
+        positionX: 0,
+        positionY: 0,
+        opacity: 1,
+        kenBurns: { enabled: false, startScale: 1, endScale: 1.1 },
+        colorBrightness: 0,
       };
       const first = session.scenes[0];
       if (!first) throw new Error("sessão sem cena");

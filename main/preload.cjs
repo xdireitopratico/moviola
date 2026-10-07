@@ -33,5 +33,17 @@ import_electron.contextBridge.exposeInMainWorld("moviola", {
   },
   export(id) {
     return import_electron.ipcRenderer.invoke("moviola:export", id);
+  },
+  setVoice(id, voice) {
+    return import_electron.ipcRenderer.invoke("moviola:setVoice", id, voice);
+  },
+  previewVoice(id, text) {
+    return import_electron.ipcRenderer.invoke("moviola:previewVoice", id, text);
+  },
+  setSceneTransform(id, sceneId, transform) {
+    return import_electron.ipcRenderer.invoke("moviola:setSceneTransform", id, sceneId, transform);
+  },
+  setTextTracks(id, textTracks) {
+    return import_electron.ipcRenderer.invoke("moviola:setTextTracks", id, textTracks);
   }
 });

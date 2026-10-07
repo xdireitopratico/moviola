@@ -28,6 +28,33 @@ async function exportOutput(session, choosePath, copy = copyFile, probe = (path)
   return { ok: true, path: dest };
 }
 
+// shared/voice.ts
+import { writeFile } from "node:fs/promises";
+async function previewVoice(voice, text, url, destPath, fetchImpl = fetch, write = writeFile) {
+  if (!url) {
+    return { ok: false, reason: "sem url" };
+  }
+  if (!text.trim()) {
+    return { ok: false, reason: "sem texto" };
+  }
+  const endpoint = new URL(url);
+  endpoint.searchParams.set("voice", voice.id);
+  endpoint.searchParams.set("speed", String(voice.speed));
+  endpoint.searchParams.set("text", text);
+  try {
+    const response = await fetchImpl(endpoint);
+    if (!response.ok) {
+      return { ok: false, reason: `http ${response.status}` };
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    await write(destPath, bytes);
+    return { ok: true, filePath: destPath };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "falha de rede";
+    return { ok: false, reason };
+  }
+}
+
 // shared/contract.ts
 var sceneStatuses = ["vazia", "gerando", "pronta", "falhou", "travada"];
 var knownStatuses = new Set(sceneStatuses);
@@ -43,31 +70,48 @@ function defaultMusic() {
     fadeOutSeconds: 0
   };
 }
+function defaultKenBurns() {
+  return { enabled: false, startScale: 1, endScale: 1.1 };
+}
+function defaultCaptions() {
+  return { enabled: false, srt: null };
+}
+function defaultScene(partial) {
+  return {
+    title: "",
+    narration: "",
+    prompt: "",
+    durationSeconds: 8,
+    status: "vazia",
+    filePath: null,
+    reason: null,
+    scale: 1,
+    positionX: 0,
+    positionY: 0,
+    opacity: 1,
+    kenBurns: defaultKenBurns(),
+    colorBrightness: 0,
+    ...partial
+  };
+}
 function createSession(launch, now = new Date().toISOString()) {
   return {
     id: crypto.randomUUID(),
     projectName: launch.theme.trim() || "Sem título",
     status: "briefing",
+    brand: "",
     launch,
     scenes: [
-      {
+      defaultScene({
         id: crypto.randomUUID(),
         index: 0,
-        title: "",
-        narration: "",
-        prompt: "",
-        durationSeconds: launch.durationSeconds,
-        status: "vazia",
-        filePath: null,
-        reason: null,
-        scale: 1,
-        positionX: 0,
-        positionY: 0,
-        opacity: 1
-      }
+        durationSeconds: launch.durationSeconds
+      })
     ],
     voice: defaultVoice(),
     music: defaultMusic(),
+    captions: defaultCaptions(),
+    narrationUrl: null,
     textTracks: [],
     outputPath: null,
     reason: null,
@@ -91,6 +135,9 @@ function musicForRequest(music) {
     fadeOutSeconds: music.fadeOutSeconds
   };
 }
+function activeTextTracks(tracks) {
+  return tracks.filter((track) => !track.locked);
+}
 function buildPostProdRequest(session, callback) {
   const ordered = [...session.scenes].sort((a, b) => a.index - b.index);
   const incomplete = ordered.find((scene) => scene.status !== "pronta");
@@ -111,15 +158,22 @@ function buildPostProdRequest(session, callback) {
       reason: "sem_arquivo"
     };
   }
+  const clips = ordered.map((scene) => scene.filePath);
   return {
     ok: true,
     request: {
       sessionId: session.id,
       projectName: session.projectName,
-      clips: ordered.map((scene) => scene.filePath),
-      narrationUrl: null,
+      clips,
+      clipEffects: ordered.map((scene) => ({
+        path: scene.filePath,
+        kenBurns: scene.kenBurns,
+        colorBrightness: scene.colorBrightness
+      })),
+      narrationUrl: session.narrationUrl,
       music: musicForRequest(session.music),
-      textTracks: session.textTracks,
+      srt: session.captions.enabled ? session.captions.srt : null,
+      textTracks: activeTextTracks(session.textTracks),
       outputFormat: "mp4",
       callback
     }
@@ -127,8 +181,8 @@ function buildPostProdRequest(session, callback) {
 }
 
 // shared/callback.ts
-import { writeFile } from "node:fs/promises";
-async function applyCallback(session, result, destPath, now, write = writeFile) {
+import { writeFile as writeFile2 } from "node:fs/promises";
+async function applyCallback(session, result, destPath, now, write = writeFile2) {
   if (!result.ok) {
     return {
       ...session,
@@ -179,14 +233,14 @@ async function callWorker(session, workerUrl, destPath, now, fetchImpl = fetch) 
 }
 
 // shared/store.ts
-import { mkdir, readdir, readFile, writeFile as writeFile2 } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile as writeFile3 } from "node:fs/promises";
 import { join } from "node:path";
 function fileOf(root, id) {
   return join(root, `${id}.json`);
 }
 async function saveSession(root, session) {
   await mkdir(root, { recursive: true });
-  await writeFile2(fileOf(root, session.id), JSON.stringify(session), "utf8");
+  await writeFile3(fileOf(root, session.id), JSON.stringify(session), "utf8");
 }
 async function readSession(root, id) {
   const raw = await readFile(fileOf(root, id), "utf8");
@@ -232,6 +286,47 @@ function setNarration(session, sceneId, narration, now) {
         return scene;
       return writeSceneText(scene, narration).scene;
     })
+  };
+}
+function setVoice(session, voice, now) {
+  return {
+    ...session,
+    voice: {
+      id: String(voice.id ?? ""),
+      speed: Number(voice.speed),
+      pauseBetweenScenesSeconds: Number(voice.pauseBetweenScenesSeconds)
+    },
+    updatedAt: now
+  };
+}
+function setSceneTransform(session, sceneId, transform, now) {
+  return {
+    ...session,
+    updatedAt: now,
+    scenes: session.scenes.map((scene) => {
+      if (scene.id !== sceneId)
+        return scene;
+      return {
+        ...scene,
+        scale: Number(transform.scale),
+        positionX: Number(transform.positionX),
+        positionY: Number(transform.positionY),
+        opacity: Number(transform.opacity)
+      };
+    })
+  };
+}
+function setTextTracks(session, textTracks, now) {
+  return {
+    ...session,
+    textTracks: textTracks.map((track) => ({
+      id: String(track.id),
+      text: String(track.text ?? ""),
+      startSeconds: Number(track.startSeconds),
+      endSeconds: Number(track.endSeconds),
+      locked: Boolean(track.locked)
+    })),
+    updatedAt: now
   };
 }
 
@@ -330,6 +425,33 @@ function registerSessionIpc() {
         return null;
       return result.filePath;
     });
+  });
+  ipcMain.handle("moviola:setVoice", async (_event, id, voice) => {
+    const current = await readSession(root, id);
+    const next = setVoice(current, voice ?? defaultVoice(), new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:previewVoice", async (_event, id, text) => {
+    const session = await readSession(root, id);
+    const voice = session.voice ?? defaultVoice();
+    const ordered = [...session.scenes].sort((a, b) => a.index - b.index);
+    const sample = typeof text === "string" ? text : ordered[0]?.narration ?? "";
+    const dest = join2(root, `${id}-preview.wav`);
+    const url = process.env.MOVIOLA_TTS_URL ?? null;
+    return previewVoice(voice, sample, url, dest);
+  });
+  ipcMain.handle("moviola:setSceneTransform", async (_event, id, sceneId, transform) => {
+    const current = await readSession(root, id);
+    const next = setSceneTransform(current, sceneId, transform, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
+  });
+  ipcMain.handle("moviola:setTextTracks", async (_event, id, textTracks) => {
+    const current = await readSession(root, id);
+    const next = setTextTracks(current, textTracks, new Date().toISOString());
+    await saveSession(root, next);
+    return next;
   });
 }
 app.whenReady().then(async () => {
@@ -462,7 +584,9 @@ app.whenReady().then(async () => {
       scale: 1,
       positionX: 0,
       positionY: 0,
-      opacity: 1
+      opacity: 1,
+      kenBurns: { enabled: false, startScale: 1, endScale: 1.1 },
+      colorBrightness: 0
     }));
     await saveSession(sessionsRoot(), opened.session);
     await win.loadFile(join2(here, "..", "app", "criacao", "index.html"), { query: { session: opened.session.id } });
