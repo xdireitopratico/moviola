@@ -124,6 +124,11 @@ function openSession(launch, now) {
   const event = record(session.id, now, "createSession", session.projectName);
   return { session: { ...session, lastEvent: event }, event };
 }
+function regenerateScene(session, sceneId, now) {
+  const scenes = session.scenes.map((scene) => scene.id === sceneId ? { ...scene, status: "gerando", filePath: null } : scene);
+  const event = record(session.id, now, "regenerateScene", sceneId);
+  return { session: { ...session, scenes, updatedAt: now, lastEvent: event }, event };
+}
 
 // main/index.ts
 var here = fileURLToPath(new URL(".", import.meta.url));
@@ -147,6 +152,12 @@ function registerSessionIpc() {
     const next = setNarration(current, sceneId, narration, new Date().toISOString());
     await saveSession(root, next);
     return next;
+  });
+  ipcMain.handle("moviola:regenerate", async (_event, id, sceneId) => {
+    const current = await readSession(root, id);
+    const next = regenerateScene(current, sceneId, new Date().toISOString());
+    await saveSession(root, next.session);
+    return next.session;
   });
   ipcMain.handle("moviola:reorder", async (_event, id, orderedIds) => {
     const current = await readSession(root, id);
@@ -211,6 +222,18 @@ app.whenReady().then(async () => {
     console.log(`TITLE ${title}`);
     console.log(`FILE ${saved.projectName}`);
     const ok = url2.includes("criacao/index.html") && url2.includes(id) && title === "Viagem de barco" && saved.projectName === "Viagem de barco" && saved.status === "briefing";
+    app.exit(ok ? 0 : 1);
+    return;
+  }
+  if (check === "035") {
+    const opened = openSession({ theme: "Regenerar", durationSeconds: 30, aspectRatio: "16:9", style: "Documental" }, "2026-10-06T00:00:00.000Z");
+    await saveSession(sessionsRoot(), opened.session);
+    await win.loadFile(join2(here, "..", "app", "criacao", "index.html"), { query: { session: opened.session.id } });
+    const shown = await win.webContents.executeJavaScript("(async()=>{await window.moviolaRoom;document.querySelector('.frame-regen').click();await window.moviolaRegenerate();return document.querySelector('.frame-status').textContent;})()");
+    const saved = await readSession(sessionsRoot(), opened.session.id);
+    console.log(`SHOWN ${shown}`);
+    console.log(`STATUS ${saved.scenes[0]?.status}`);
+    const ok = shown === "gerando" && saved.scenes[0]?.status === "gerando";
     app.exit(ok ? 0 : 1);
     return;
   }

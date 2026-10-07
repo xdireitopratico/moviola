@@ -17,7 +17,7 @@
         <div class="frame-top">
           <span class="frame-num">:: CENA ${n}</span>
           <span class="frame-status">${status}</span>
-          <button type="button" class="frame-up">Subir</button>
+          <button type="button" class="frame-up">Subir</button><button type="button" class="frame-regen">Regenerar</button>
         </div>
         <div class="frame-canvas"><span class="frame-ph">${status}</span></div>
         <div class="frame-foot">
@@ -75,6 +75,24 @@
     });
   }
   window.moviolaReorder = () => reorderTail;
+
+  let regenerateTail = Promise.resolve();
+  if (board) {
+    board.addEventListener("click", (event) => {
+      const button = event.target.closest(".frame-regen");
+      if (!button || !sessionId || !window.moviola) return;
+      const frame = button.closest(".frame");
+      const id = frame ? frame.getAttribute("data-id") || "" : "";
+      if (!id) return;
+      regenerateTail = window.moviola.regenerate(sessionId, id).then((session) => {
+        paintSheet(session.scenes);
+        const slot = document.getElementById("lastEvent");
+        if (slot && session.lastEvent) slot.textContent = `${session.lastEvent.operation} · ${session.lastEvent.detail}`;
+        return session;
+      });
+    });
+  }
+  window.moviolaRegenerate = () => regenerateTail;
   window.moviolaRoom = (async () => {
     const slot = document.getElementById("lastEvent");
     if (!sessionId || !window.moviola) return { title: "", event: slot ? slot.textContent : "" };

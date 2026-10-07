@@ -67,6 +67,14 @@ export function openSession(launch: Launch, now: string): { session: Session; ev
   return { session: { ...session, lastEvent: event }, event };
 }
 
+export function regenerateScene(session: Session, sceneId: string, now: string): { session: Session; event: ActivityEvent } {
+  const scenes = session.scenes.map((scene) =>
+    scene.id === sceneId ? { ...scene, status: "gerando" as const, filePath: null } : scene,
+  );
+  const event = record(session.id, now, "regenerateScene", sceneId);
+  return { session: { ...session, scenes, updatedAt: now, lastEvent: event }, event };
+}
+
 export function storyboard(session: Session, now: string): { session: Session; event: ActivityEvent } {
   const next = fillStoryboard(session, now);
   const event = record(session.id, now, "fillStoryboard", `${next.scenes.length} cenas`);

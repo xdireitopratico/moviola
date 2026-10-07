@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createSession } from "./contract.ts";
-import { createSession as createFromOps, fillStoryboard, openSession, storyboard } from "./operations.ts";
+import { createSession as createFromOps, fillStoryboard, openSession, regenerateScene, storyboard } from "./operations.ts";
 
 const launch = {
   theme: "A história do café",
@@ -46,6 +46,16 @@ test("029 fillStoryboard não altera cena travada", () => {
   const filled = fillStoryboard(locked, "2026-10-06T01:00:00.000Z");
   expect(filled.scenes[0]?.narration).toBe("texto aprovado");
   expect(filled.scenes[0]?.status).toBe("travada");
+});
+
+test("035 regenerar marca gerando e não deixa a cena pronta", () => {
+  const session = createSession(launch, "2026-10-06T00:00:00.000Z");
+  const scene = session.scenes[0];
+  if (!scene) throw new Error("sessão sem cena");
+  const next = regenerateScene(session, scene.id, "2026-10-06T01:00:00.000Z");
+  expect(next.event.operation).toBe("regenerateScene");
+  expect(next.session.scenes[0]?.status).toBe("gerando");
+  expect(next.session.scenes[0]?.filePath).toBeNull();
 });
 
 test("030 cada operação acrescenta um evento", () => {

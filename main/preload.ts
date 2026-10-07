@@ -20,4 +20,7 @@ contextBridge.exposeInMainWorld("moviola", {
   reorder(id: string, orderedIds: string[]): Promise<Session> {
     return ipcRenderer.invoke("moviola:reorder", id, orderedIds);
   },
+  regenerate(id: string, sceneId: string): Promise<Session> {
+    return ipcRenderer.invoke("moviola:regenerate", id, sceneId);
+  },
 });

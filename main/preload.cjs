@@ -18,5 +18,8 @@ import_electron.contextBridge.exposeInMainWorld("moviola", {
   },
   reorder(id, orderedIds) {
     return import_electron.ipcRenderer.invoke("moviola:reorder", id, orderedIds);
+  },
+  regenerate(id, sceneId) {
+    return import_electron.ipcRenderer.invoke("moviola:regenerate", id, sceneId);
   }
 });
